@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Optimus spašava grad</title>
     <link rel="preconnect" href="https://unpkg.com" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -16,7 +24,7 @@
 
       <section class="hud top-right">
         <p>Bodovi: <span id="score">0</span></p>
-        <p>Spašeni građani: <span id="saved">0</span>/10</p>
+        <p>Spašeni građani: <span id="saved">0</span>/8</p>
         <p>Oblik: <span id="mode">Robot</span></p>
         <p>Zvuk: <span id="soundState">Uključen</span></p>
       </section>

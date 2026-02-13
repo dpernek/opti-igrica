@@ -1,7 +1,7 @@
-import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
-import { GLTFLoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/GLTFLoader.js";
-import { RGBELoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/RGBELoader.js";
-import { clone } from "https://unpkg.com/three@0.161.0/examples/jsm/utils/SkeletonUtils.js";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+import { clone } from "three/addons/utils/SkeletonUtils.js";
 
 const app = document.getElementById("app");
 const scoreEl = document.getElementById("score");
@@ -85,7 +85,7 @@ scene.add(skyline);
 const buildingPalette = [0xd4dde9, 0xb9c8d8, 0xa8bbc8, 0xe6d4c6, 0xc1d1de, 0xa5bac8];
 
 function addCity() {
-  for (let i = 0; i < 160; i++) {
+  for (let i = 0; i < 140; i++) {
     const w = THREE.MathUtils.randFloat(2.7, 6.1);
     const h = THREE.MathUtils.randFloat(6, 27);
     const d = THREE.MathUtils.randFloat(2.9, 7.2);
@@ -158,7 +158,7 @@ function createTree() {
 const trees = new THREE.Group();
 scene.add(trees);
 function addTrees() {
-  for (let i = 0; i < 230; i++) {
+  for (let i = 0; i < 190; i++) {
     const tree = createTree();
     const side = Math.random() > 0.5 ? 1 : -1;
     tree.position.set(
@@ -169,6 +169,39 @@ function addTrees() {
     tree.scale.setScalar(THREE.MathUtils.randFloat(0.85, 1.5));
     tree.rotation.y = Math.random() * Math.PI;
     trees.add(tree);
+  }
+}
+
+const streetLights = new THREE.Group();
+scene.add(streetLights);
+function addStreetLights() {
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x8d99a6, roughness: 0.35, metalness: 0.7 });
+  const lampMat = new THREE.MeshStandardMaterial({ color: 0xfff4c2, emissive: 0xffcc4d, emissiveIntensity: 0.55 });
+
+  for (let i = 0; i < 36; i++) {
+    const z = 10 - i * 10.5;
+    for (const side of [-1, 1]) {
+      const light = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 4.6, 8), poleMat);
+      pole.position.y = 2.3;
+      light.add(pole);
+
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.08, 0.08), poleMat);
+      arm.position.set(side * 0.36, 4.42, 0);
+      light.add(arm);
+
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), lampMat);
+      lamp.position.set(side * 0.7, 4.3, 0);
+      light.add(lamp);
+
+      const point = new THREE.PointLight(0xffdd8f, 0.25, 9, 2);
+      point.position.copy(lamp.position);
+      light.add(point);
+
+      light.position.set(side * 8.5, 0, z);
+      castShadowRecursive(light);
+      streetLights.add(light);
+    }
   }
 }
 
@@ -190,6 +223,7 @@ function addClouds() {
 
 addCity();
 addTrees();
+addStreetLights();
 addClouds();
 
 const modelUrls = {
@@ -224,13 +258,13 @@ const state = {
   ended: false,
   score: 0,
   saved: 0,
-  targetSaved: 10,
+  targetSaved: 8,
   mode: "robot",
   leftDown: false,
   rightDown: false,
   laneTarget: 0,
-  speedRobot: 0.28,
-  speedTruck: 0.39,
+  speedRobot: 0.22,
+  speedTruck: 0.3,
   transformCooldown: 0,
   soundsEnabled: true,
   speechUnlocked: false,
@@ -248,6 +282,18 @@ const controlState = {
   swipeId: null,
   swipeStartX: 0
 };
+
+const voiceClips = {
+  missionStart: "/assets/audio/hr/optimus-krecemo.mp3",
+  transformTruck: "/assets/audio/hr/optimus-transform-kamion.mp3",
+  transformRobot: "/assets/audio/hr/optimus-transform-robot.mp3",
+  bumblebeeAssist: "/assets/audio/hr/bumblebee-tu-sam.mp3",
+  citizenSaved: "/assets/audio/hr/optimus-spasen-gradanin.mp3",
+  victory: "/assets/audio/hr/optimus-grad-spasen.mp3",
+  retry: "/assets/audio/hr/optimus-pokusaj-opet.mp3"
+};
+const voiceAudioCache = {};
+const missingVoiceKeys = new Set();
 
 const anim = {
   optimusModel: null,
@@ -312,6 +358,31 @@ function unlockAudio() {
   }
 }
 
+function playVoiceClip(key) {
+  if (!state.soundsEnabled || !audioState.unlocked || !voiceClips[key] || missingVoiceKeys.has(key)) {
+    return false;
+  }
+  try {
+    if (!voiceAudioCache[key]) {
+      const clip = new Audio(voiceClips[key]);
+      clip.preload = "auto";
+      clip.volume = 0.9;
+      clip.addEventListener("error", () => {
+        missingVoiceKeys.add(key);
+      });
+      voiceAudioCache[key] = clip;
+    }
+
+    const clip = voiceAudioCache[key];
+    clip.currentTime = 0;
+    clip.play().catch(() => {});
+    return true;
+  } catch {
+    missingVoiceKeys.add(key);
+    return false;
+  }
+}
+
 function speakHr(text) {
   if (!state.soundsEnabled || !state.speechUnlocked || !window.speechSynthesis) {
     return;
@@ -336,6 +407,13 @@ function speakHr(text) {
 
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
+}
+
+function playVoice(key, fallbackText) {
+  const played = playVoiceClip(key);
+  if (!played && fallbackText) {
+    speakHr(fallbackText);
+  }
 }
 
 function unlockSpeech() {
@@ -662,8 +740,8 @@ function clearLevel() {
 
 function populateLevel() {
   clearLevel();
-  for (let i = 0; i < 42; i++) {
-    spawnObstacle(-16 - i * THREE.MathUtils.randFloat(7.3, 10.2));
+  for (let i = 0; i < 22; i++) {
+    spawnObstacle(-20 - i * THREE.MathUtils.randFloat(10, 14));
   }
   for (let i = 0; i < state.targetSaved; i++) {
     spawnCitizen(-34 - i * 18);
@@ -701,11 +779,11 @@ function toggleTransform() {
 
   if (next === "truck") {
     setStatus("Transformacija: Optimus je sada kamion.");
-    speakHr("Transformiram se u kamion.");
+    playVoice("transformTruck", "Transformiram se u kamion.");
     tone(330, 0.09, "square", 0.03);
   } else {
     setStatus("Transformacija: Optimus je sada robot.");
-    speakHr("Vraćam se u robotski način.");
+    playVoice("transformRobot", "Vraćam se u robotski način.");
     tone(620, 0.09, "triangle", 0.03);
   }
 
@@ -720,7 +798,7 @@ function startMission() {
   unlockSpeech();
   state.started = true;
   setStatus("Misija je krenula. Vodi Optimusa kroz grad.");
-  speakHr("Krećemo. Bumblebee, prati me.");
+  playVoice("missionStart", "Krećemo. Bumblebee, prati me.");
   tone(520, 0.08, "triangle", 0.03);
 }
 
@@ -752,11 +830,11 @@ function endGame(win) {
 
   if (win) {
     setStatus("Bravo! Grad je spašen.", true);
-    speakHr("Odlično. Grad je spašen.");
+    playVoice("victory", "Odlično. Grad je spašen.");
     tone(780, 0.15, "triangle", 0.04);
   } else {
     setStatus("Sudar. Pokušaj ponovno.");
-    speakHr("Pokušaj ponovno. Uspjet ćemo.");
+    playVoice("retry", "Pokušaj ponovno. Uspjet ćemo.");
     tone(180, 0.12, "sawtooth", 0.03);
   }
 }
@@ -979,10 +1057,10 @@ function animateGame(dt, time) {
 
   if (time - state.bumblebeeVoiceAt > 11) {
     state.bumblebeeVoiceAt = time;
-    speakHr("Bumblebee: Tu sam, Optimuse.");
+    playVoice("bumblebeeAssist", "Bumblebee: Tu sam, Optimuse.");
   }
 
-  const collisionRadius = state.mode === "robot" ? 1.08 : 1.32;
+  const collisionRadius = state.mode === "robot" ? 0.82 : 1.02;
 
   for (const obs of obstacles) {
     if (obs.userData.cleared) {
@@ -1002,7 +1080,7 @@ function animateGame(dt, time) {
 
     const dz = Math.abs(obs.position.z - heroRoot.position.z);
     const dx = Math.abs(obs.position.x - heroRoot.position.x);
-    if (dz < collisionRadius + obs.userData.radius && dx < 1.7) {
+    if (dz < collisionRadius + obs.userData.radius && dx < 1.45) {
       endGame(false);
       break;
     }
@@ -1029,7 +1107,7 @@ function animateGame(dt, time) {
       updateHUD();
       burst(citizen.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0x8ff5c0);
       tone(710, 0.08, "triangle", 0.03);
-      speakHr("Građanin je spašen.");
+      playVoice("citizenSaved", "Građanin je spašen.");
 
       if (state.saved >= state.targetSaved) {
         endGame(true);
