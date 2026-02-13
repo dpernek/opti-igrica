@@ -1,7 +1,11 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
-import { clone } from "three/addons/utils/SkeletonUtils.js";
+import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/GLTFLoader.js";
+import { RGBELoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/RGBELoader.js";
+import { clone } from "https://unpkg.com/three@0.161.0/examples/jsm/utils/SkeletonUtils.js";
+import { EffectComposer } from "https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/ShaderPass.js";
 
 const app = document.getElementById("app");
 const scoreEl = document.getElementById("score");
@@ -23,14 +27,56 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 camera.position.set(0, 8.5, 17.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.22;
+renderer.physicallyCorrectLights = true;
 app.appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.28, 0.5, 0.9);
+composer.addPass(bloomPass);
+
+const cinematicPass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    contrast: { value: 1.08 },
+    saturation: { value: 1.18 },
+    vignette: { value: 0.2 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float contrast;
+    uniform float saturation;
+    uniform float vignette;
+    varying vec2 vUv;
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+      color.rgb = mix(vec3(gray), color.rgb, saturation);
+      color.rgb = (color.rgb - 0.5) * contrast + 0.5;
+      float dist = distance(vUv, vec2(0.5));
+      float edge = smoothstep(0.25, 0.85, dist);
+      color.rgb *= (1.0 - edge * vignette);
+      gl_FragColor = color;
+    }
+  `
+});
+composer.addPass(cinematicPass);
+composer.setSize(window.innerWidth, window.innerHeight);
 
 const hemi = new THREE.HemisphereLight(0xe9f8ff, 0x4f644f, 0.8);
 scene.add(hemi);
@@ -50,6 +96,39 @@ scene.add(sun);
 const fill = new THREE.DirectionalLight(0xc8e4ff, 0.45);
 fill.position.set(-20, 13, -13);
 scene.add(fill);
+
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(320, 32, 24),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      topColor: { value: new THREE.Color(0x6bb2ff) },
+      horizonColor: { value: new THREE.Color(0xe6f4ff) },
+      bottomColor: { value: new THREE.Color(0xd6deea) }
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 horizonColor;
+      uniform vec3 bottomColor;
+      varying vec3 vWorldPosition;
+      void main() {
+        float h = normalize(vWorldPosition).y * 0.5 + 0.5;
+        vec3 c = mix(bottomColor, horizonColor, smoothstep(0.0, 0.45, h));
+        c = mix(c, topColor, smoothstep(0.45, 1.0, h));
+        gl_FragColor = vec4(c, 1.0);
+      }
+    `
+  })
+);
+scene.add(sky);
 
 const roadGroup = new THREE.Group();
 scene.add(roadGroup);
@@ -72,12 +151,76 @@ road.position.set(0, 0, -125);
 road.receiveShadow = true;
 roadGroup.add(road);
 
+const curbMat = new THREE.MeshStandardMaterial({ color: 0xc8ced4, roughness: 0.72, metalness: 0.08 });
+for (const side of [-1, 1]) {
+  const curb = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, 400), curbMat);
+  curb.position.set(side * 7.85, 0.08, -125);
+  curb.castShadow = true;
+  curb.receiveShadow = true;
+  roadGroup.add(curb);
+}
+
+const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x434b58, roughness: 0.9, metalness: 0.04 });
+for (const side of [-1, 1]) {
+  const shoulder = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 400), shoulderMat);
+  shoulder.rotation.x = -Math.PI / 2;
+  shoulder.position.set(side * 8.95, 0.01, -125);
+  shoulder.receiveShadow = true;
+  roadGroup.add(shoulder);
+}
+
 const laneMat = new THREE.MeshStandardMaterial({ color: 0xffe98c, emissive: 0x655118, emissiveIntensity: 0.25 });
 for (let i = 0; i < 58; i++) {
   const line = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 3.8), laneMat);
   line.position.set(0, 0.03, 12 - i * 7);
   line.receiveShadow = true;
   roadGroup.add(line);
+}
+
+const crosswalkMat = new THREE.MeshStandardMaterial({ color: 0xf3f5f8, roughness: 0.7, metalness: 0.03 });
+for (let i = 0; i < 7; i++) {
+  const crossZ = -35 - i * 45;
+  for (let s = -3; s <= 3; s++) {
+    const zebra = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.03, 0.6), crosswalkMat);
+    zebra.position.set(s * 1.95, 0.03, crossZ);
+    zebra.receiveShadow = true;
+    roadGroup.add(zebra);
+  }
+}
+
+const parkedCars = new THREE.Group();
+scene.add(parkedCars);
+function addParkedCars() {
+  const carPalette = [0x1e1f2a, 0x8a1420, 0x2450a6, 0xcfd3da, 0xffba22];
+  for (let i = 0; i < 28; i++) {
+    const car = new THREE.Group();
+    const color = carPalette[Math.floor(Math.random() * carPalette.length)];
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(1.7, 0.6, 3.2),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.7 })
+    );
+    body.position.y = 0.48;
+    car.add(body);
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.52, 1.6),
+      new THREE.MeshStandardMaterial({ color: 0x8ac9ff, roughness: 0.15, metalness: 0.35, transparent: true, opacity: 0.82 })
+    );
+    cabin.position.set(0, 0.92, -0.1);
+    car.add(cabin);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x101015, roughness: 0.95 });
+    for (const x of [-0.75, 0.75]) {
+      for (const z of [-1.05, 1.05]) {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.25, 14), wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(x, 0.22, z);
+        car.add(wheel);
+      }
+    }
+    car.position.set((Math.random() > 0.5 ? 1 : -1) * THREE.MathUtils.randFloat(10.8, 13.6), 0, -25 - i * 12.5);
+    car.rotation.y = Math.random() > 0.5 ? 0 : Math.PI;
+    castShadowRecursive(car);
+    parkedCars.add(car);
+  }
 }
 
 const skyline = new THREE.Group();
@@ -205,6 +348,33 @@ function addStreetLights() {
   }
 }
 
+const trafficGroup = new THREE.Group();
+scene.add(trafficGroup);
+function addTraffic() {
+  const carMat = new THREE.MeshStandardMaterial({ color: 0x10141f, roughness: 0.45, metalness: 0.62 });
+  const lightMat = new THREE.MeshStandardMaterial({ color: 0xffc761, emissive: 0xff9c24, emissiveIntensity: 0.8 });
+  for (let i = 0; i < 16; i++) {
+    const car = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 2.9), carMat.clone());
+    body.material.color = new THREE.Color().setHSL(Math.random(), 0.35, 0.34);
+    body.position.y = 0.48;
+    car.add(body);
+    const headLightL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), lightMat);
+    headLightL.position.set(-0.45, 0.52, 1.46);
+    car.add(headLightL);
+    const headLightR = headLightL.clone();
+    headLightR.position.x = 0.45;
+    car.add(headLightR);
+    car.position.set((Math.random() > 0.5 ? 1 : -1) * THREE.MathUtils.randFloat(2.1, 4.3), 0, -30 - i * 26);
+    car.userData = {
+      speed: THREE.MathUtils.randFloat(0.07, 0.12),
+      laneX: car.position.x
+    };
+    castShadowRecursive(car);
+    trafficGroup.add(car);
+  }
+}
+
 const clouds = new THREE.Group();
 scene.add(clouds);
 function addClouds() {
@@ -221,10 +391,25 @@ function addClouds() {
   }
 }
 
+const distantMountains = new THREE.Group();
+scene.add(distantMountains);
+function addMountains() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x8da3bb, roughness: 0.9, metalness: 0.02 });
+  for (let i = 0; i < 18; i++) {
+    const mountain = new THREE.Mesh(new THREE.ConeGeometry(THREE.MathUtils.randFloat(8, 18), THREE.MathUtils.randFloat(10, 24), 7), mat);
+    mountain.position.set(-160 + i * 18, 5, -300 - Math.random() * 80);
+    mountain.rotation.y = Math.random() * Math.PI;
+    distantMountains.add(mountain);
+  }
+}
+
 addCity();
 addTrees();
 addStreetLights();
 addClouds();
+addParkedCars();
+addTraffic();
+addMountains();
 
 const modelUrls = {
   robot: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r161/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
@@ -988,7 +1173,9 @@ window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.setSize(window.innerWidth, window.innerHeight);
 });
 
 const clock = new THREE.Clock();
@@ -996,6 +1183,16 @@ const clock = new THREE.Clock();
 function animateClouds(time) {
   clouds.children.forEach((cloud, idx) => {
     cloud.position.x += Math.sin(time * 0.1 + idx) * 0.003;
+  });
+}
+
+function animateTraffic() {
+  trafficGroup.children.forEach((car) => {
+    car.position.z += car.userData.speed;
+    if (car.position.z > heroRoot.position.z + 28) {
+      car.position.z = heroRoot.position.z - 320 - Math.random() * 80;
+    }
+    car.position.x += (car.userData.laneX - car.position.x) * 0.05;
   });
 }
 
@@ -1118,8 +1315,9 @@ function animateGame(dt, time) {
   const camX = heroRoot.position.x * 0.44;
   const camY = state.mode === "robot" ? 8.1 : 7.2;
   const camZ = heroRoot.position.z + (state.mode === "robot" ? 16 : 14.4);
-  camera.position.x += (camX - camera.position.x) * 0.07;
-  camera.position.y += (camY - camera.position.y) * 0.07;
+  const shake = state.mode === "truck" ? 0.06 : 0.03;
+  camera.position.x += (camX - camera.position.x) * 0.07 + Math.sin(time * 18) * shake * 0.02;
+  camera.position.y += (camY - camera.position.y) * 0.07 + Math.sin(time * 15) * shake * 0.015;
   camera.position.z += (camZ - camera.position.z) * 0.08;
 }
 
@@ -1138,11 +1336,13 @@ function render() {
   }
 
   animateClouds(time);
+  animateTraffic();
   animateGame(dt, time);
   animateParticles();
+  renderer.toneMappingExposure = 1.15 + Math.sin(time * 0.08) * 0.04;
 
-  camera.lookAt(heroRoot.position.x, 2.6, heroRoot.position.z - 8.3);
-  renderer.render(scene, camera);
+  camera.lookAt(heroRoot.position.x, 2.8, heroRoot.position.z - 8.8);
+  composer.render();
   requestAnimationFrame(render);
 }
 
