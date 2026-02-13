@@ -4,7 +4,6 @@
   --hud: rgba(9, 19, 30, 0.72);
   --text: #ffffff;
   --ok: #8ff7b4;
-  --warn: #ffd166;
   --ctrl-bg: rgba(18, 39, 58, 0.82);
   --ctrl-border: rgba(255, 255, 255, 0.28);
   --transform: linear-gradient(135deg, #f94144, #f3722c);
@@ -48,7 +47,7 @@ canvas {
 .top-left {
   top: 14px;
   left: 14px;
-  max-width: 420px;
+  max-width: 430px;
 }
 
 .top-left h1 {
@@ -66,15 +65,15 @@ canvas {
 .top-right {
   top: 14px;
   right: 14px;
-  min-width: 205px;
+  min-width: 215px;
 }
 
 .bottom-center {
   left: 50%;
   transform: translateX(-50%);
-  bottom: max(104px, calc(env(safe-area-inset-bottom) + 82px));
+  bottom: max(110px, calc(env(safe-area-inset-bottom) + 88px));
   font-size: 1rem;
-  min-width: 280px;
+  min-width: 310px;
   text-align: center;
 }
 
@@ -84,16 +83,17 @@ canvas {
   transform: translateX(-50%);
   bottom: max(12px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, minmax(95px, 140px));
+  grid-template-columns: repeat(3, minmax(98px, 145px));
   gap: 10px;
   align-items: center;
 }
 
-.ctrl-btn {
+.ctrl-btn,
+.util-btn {
   border: 2px solid var(--ctrl-border);
   background: var(--ctrl-bg);
   color: #fff;
-  font-size: 1.05rem;
+  font-size: 1.04rem;
   font-weight: 700;
   padding: 16px 14px;
   border-radius: 16px;
@@ -101,12 +101,25 @@ canvas {
   touch-action: manipulation;
 }
 
-.ctrl-btn:active {
+.ctrl-btn:active,
+.util-btn:active {
   transform: scale(0.97);
 }
 
 .ctrl-btn.transform {
   background: var(--transform);
+}
+
+#utilityButtons {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.util-btn {
+  padding: 10px 16px;
+  font-size: 0.95rem;
 }
 
 #restart {
@@ -145,12 +158,17 @@ canvas {
   }
 
   #controls {
-    grid-template-columns: repeat(3, minmax(90px, 116px));
+    grid-template-columns: repeat(3, minmax(90px, 118px));
     gap: 9px;
   }
 
   .ctrl-btn {
     padding: 14px 12px;
     font-size: 1rem;
+  }
+
+  .util-btn {
+    padding: 9px 13px;
+    font-size: 0.9rem;
   }
 }

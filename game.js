@@ -1,21 +1,26 @@
 import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/GLTFLoader.js";
+import { RGBELoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/RGBELoader.js";
+import { clone } from "https://unpkg.com/three@0.161.0/examples/jsm/utils/SkeletonUtils.js";
 
 const app = document.getElementById("app");
 const scoreEl = document.getElementById("score");
 const savedEl = document.getElementById("saved");
 const modeEl = document.getElementById("mode");
+const soundStateEl = document.getElementById("soundState");
 const statusEl = document.getElementById("status");
 const restartBtn = document.getElementById("restart");
 const leftBtn = document.getElementById("leftBtn");
 const rightBtn = document.getElementById("rightBtn");
 const transformBtn = document.getElementById("transformBtn");
+const soundBtn = document.getElementById("soundBtn");
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xa5d8ff);
-scene.fog = new THREE.Fog(0xb9e6ff, 30, 210);
+scene.background = new THREE.Color(0xaedfff);
+scene.fog = new THREE.Fog(0xc2eaff, 26, 210);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 420);
-camera.position.set(0, 9, 18);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 450);
+camera.position.set(0, 8.5, 17.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -24,70 +29,124 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.1;
 app.appendChild(renderer.domElement);
 
-const hemi = new THREE.HemisphereLight(0xe8f8ff, 0x56705b, 0.85);
+const hemi = new THREE.HemisphereLight(0xe9f8ff, 0x4f644f, 0.8);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xfff1d4, 1.9);
-sun.position.set(40, 52, 24);
+const sun = new THREE.DirectionalLight(0xfff1d7, 2);
+sun.position.set(42, 58, 22);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -34;
-sun.shadow.camera.right = 34;
-sun.shadow.camera.top = 34;
-sun.shadow.camera.bottom = -34;
+sun.shadow.camera.left = -40;
+sun.shadow.camera.right = 40;
+sun.shadow.camera.top = 40;
+sun.shadow.camera.bottom = -40;
 sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far = 140;
+sun.shadow.camera.far = 160;
 scene.add(sun);
 
-const fillLight = new THREE.DirectionalLight(0xd6ecff, 0.5);
-fillLight.position.set(-25, 15, -10);
-scene.add(fillLight);
+const fill = new THREE.DirectionalLight(0xc8e4ff, 0.45);
+fill.position.set(-20, 13, -13);
+scene.add(fill);
 
 const roadGroup = new THREE.Group();
 scene.add(roadGroup);
 
-const grass = new THREE.Mesh(
-  new THREE.PlaneGeometry(230, 460),
-  new THREE.MeshStandardMaterial({ color: 0x5ea765, roughness: 0.96, metalness: 0.01 })
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(260, 500),
+  new THREE.MeshStandardMaterial({ color: 0x63ab69, roughness: 0.95, metalness: 0.02 })
 );
-grass.rotation.x = -Math.PI / 2;
-grass.position.set(0, -0.02, -120);
-grass.receiveShadow = true;
-scene.add(grass);
+ground.rotation.x = -Math.PI / 2;
+ground.position.set(0, -0.03, -125);
+ground.receiveShadow = true;
+scene.add(ground);
 
-const asphalt = new THREE.Mesh(
-  new THREE.PlaneGeometry(14, 360),
-  new THREE.MeshStandardMaterial({ color: 0x2f3541, roughness: 0.92, metalness: 0.04 })
+const road = new THREE.Mesh(
+  new THREE.PlaneGeometry(15.2, 400),
+  new THREE.MeshStandardMaterial({ color: 0x2f3440, roughness: 0.9, metalness: 0.08 })
 );
-asphalt.rotation.x = -Math.PI / 2;
-asphalt.position.set(0, 0, -120);
-asphalt.receiveShadow = true;
-roadGroup.add(asphalt);
+road.rotation.x = -Math.PI / 2;
+road.position.set(0, 0, -125);
+road.receiveShadow = true;
+roadGroup.add(road);
 
-const laneMat = new THREE.MeshStandardMaterial({ color: 0xffec8b, emissive: 0x544212, emissiveIntensity: 0.3 });
-for (let i = 0; i < 54; i++) {
-  const mark = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 3.8), laneMat);
-  mark.position.set(0, 0.03, 8 - i * 7.2);
-  mark.receiveShadow = true;
-  roadGroup.add(mark);
+const laneMat = new THREE.MeshStandardMaterial({ color: 0xffe98c, emissive: 0x655118, emissiveIntensity: 0.25 });
+for (let i = 0; i < 58; i++) {
+  const line = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 3.8), laneMat);
+  line.position.set(0, 0.03, 12 - i * 7);
+  line.receiveShadow = true;
+  roadGroup.add(line);
+}
+
+const skyline = new THREE.Group();
+scene.add(skyline);
+const buildingPalette = [0xd4dde9, 0xb9c8d8, 0xa8bbc8, 0xe6d4c6, 0xc1d1de, 0xa5bac8];
+
+function addCity() {
+  for (let i = 0; i < 160; i++) {
+    const w = THREE.MathUtils.randFloat(2.7, 6.1);
+    const h = THREE.MathUtils.randFloat(6, 27);
+    const d = THREE.MathUtils.randFloat(2.9, 7.2);
+    const side = Math.random() > 0.5 ? 1 : -1;
+
+    const block = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshStandardMaterial({
+        color: buildingPalette[Math.floor(Math.random() * buildingPalette.length)],
+        roughness: 0.7,
+        metalness: 0.1
+      })
+    );
+    body.castShadow = true;
+    body.receiveShadow = true;
+    block.add(body);
+
+    const winMat = new THREE.MeshStandardMaterial({
+      color: 0xc6e5ff,
+      emissive: 0x2a6ba7,
+      emissiveIntensity: 0.25,
+      roughness: 0.22,
+      metalness: 0.45
+    });
+
+    const rows = Math.max(2, Math.floor(h / 1.25));
+    const cols = Math.max(2, Math.floor(w / 1));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (Math.random() < 0.22) {
+          continue;
+        }
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.38), winMat);
+        win.position.set(
+          -w / 2 + 0.48 + c * ((w - 0.96) / Math.max(cols - 1, 1)),
+          -h / 2 + 0.66 + r * ((h - 1.22) / Math.max(rows - 1, 1)),
+          d / 2 + 0.04
+        );
+        block.add(win);
+      }
+    }
+
+    block.position.set(side * THREE.MathUtils.randFloat(17, 43), h / 2, THREE.MathUtils.randFloat(-360, 42));
+    skyline.add(block);
+  }
 }
 
 function createTree() {
   const tree = new THREE.Group();
   const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.32, 2.2, 10),
-    new THREE.MeshStandardMaterial({ color: 0x6f4d2d, roughness: 0.95 })
+    new THREE.CylinderGeometry(0.2, 0.3, 2.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x6c4b29, roughness: 0.94 })
   );
   trunk.position.y = 1.1;
   trunk.castShadow = true;
   tree.add(trunk);
 
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f944c, roughness: 0.86 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f8f48, roughness: 0.85 });
   for (let i = 0; i < 3; i++) {
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(1.05 - i * 0.14, 14, 12), leafMat);
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(1.05 - i * 0.1, 12, 10), leafMat);
     leaf.position.y = 2 + i * 0.5;
     leaf.castShadow = true;
     tree.add(leaf);
@@ -96,370 +155,69 @@ function createTree() {
   return tree;
 }
 
-const forest = new THREE.Group();
-scene.add(forest);
-for (let i = 0; i < 220; i++) {
-  const tree = createTree();
-  const side = Math.random() > 0.5 ? 1 : -1;
-  tree.position.x = side * THREE.MathUtils.randFloat(11, 36);
-  tree.position.z = THREE.MathUtils.randFloat(-300, 60);
-  tree.rotation.y = Math.random() * Math.PI;
-  tree.scale.setScalar(THREE.MathUtils.randFloat(0.8, 1.45));
-  forest.add(tree);
-}
-
-const skyline = new THREE.Group();
-scene.add(skyline);
-const buildingColors = [0xd8dee6, 0xb4c6d8, 0x9fb3c9, 0xf0d7be, 0xb7c6d0, 0xc7d7e2];
-
-function addWindows(building, w, h, d) {
-  const windowMat = new THREE.MeshStandardMaterial({
-    color: 0xb5dfff,
-    emissive: 0x2d6dad,
-    emissiveIntensity: 0.2,
-    metalness: 0.45,
-    roughness: 0.26
-  });
-  const rows = Math.max(2, Math.floor(h / 1.25));
-  const cols = Math.max(2, Math.floor(w / 0.9));
-  const depthOffset = d / 2 + 0.03;
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (Math.random() < 0.24) {
-        continue;
-      }
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.36), windowMat);
-      win.position.set(-w / 2 + 0.45 + c * ((w - 0.9) / Math.max(cols - 1, 1)), -h / 2 + 0.62 + r * ((h - 1.1) / Math.max(rows - 1, 1)), depthOffset);
-      building.add(win);
-    }
+const trees = new THREE.Group();
+scene.add(trees);
+function addTrees() {
+  for (let i = 0; i < 230; i++) {
+    const tree = createTree();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    tree.position.set(
+      side * THREE.MathUtils.randFloat(10.5, 36),
+      0,
+      THREE.MathUtils.randFloat(-340, 60)
+    );
+    tree.scale.setScalar(THREE.MathUtils.randFloat(0.85, 1.5));
+    tree.rotation.y = Math.random() * Math.PI;
+    trees.add(tree);
   }
-}
-
-for (let i = 0; i < 150; i++) {
-  const w = THREE.MathUtils.randFloat(2.7, 5.7);
-  const h = THREE.MathUtils.randFloat(5.5, 23);
-  const d = THREE.MathUtils.randFloat(2.8, 6.4);
-  const side = Math.random() > 0.5 ? 1 : -1;
-
-  const block = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshStandardMaterial({
-      color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
-      roughness: 0.7,
-      metalness: 0.08
-    })
-  );
-  body.castShadow = true;
-  body.receiveShadow = true;
-  block.add(body);
-  addWindows(block, w, h, d);
-
-  block.position.set(side * THREE.MathUtils.randFloat(15, 38), h / 2, THREE.MathUtils.randFloat(-330, 45));
-  skyline.add(block);
 }
 
 const clouds = new THREE.Group();
 scene.add(clouds);
-const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.88 });
-for (let i = 0; i < 10; i++) {
-  const cloud = new THREE.Group();
-  for (let p = 0; p < 5; p++) {
-    const puff = new THREE.Mesh(new THREE.SphereGeometry(1.4 + Math.random() * 1.3, 14, 12), cloudMat);
-    puff.position.set((p - 2) * 1.5, Math.random() * 0.5, Math.random() * 0.8);
-    cloud.add(puff);
-  }
-  cloud.position.set(THREE.MathUtils.randFloat(-34, 34), THREE.MathUtils.randFloat(15, 26), THREE.MathUtils.randFloat(-120, 20));
-  clouds.add(cloud);
-}
-
-function castShadowRecursive(obj) {
-  obj.traverse((node) => {
-    if (node.isMesh) {
-      node.castShadow = true;
-      node.receiveShadow = true;
+function addClouds() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.86 });
+  for (let i = 0; i < 11; i++) {
+    const cloud = new THREE.Group();
+    for (let j = 0; j < 5; j++) {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.2 + Math.random() * 1.2, 14, 12), mat);
+      puff.position.set((j - 2) * 1.4, Math.random() * 0.4, Math.random() * 0.8);
+      cloud.add(puff);
     }
-  });
-}
-
-function createOptimusRobot() {
-  const robot = new THREE.Group();
-
-  const red = new THREE.MeshStandardMaterial({ color: 0xd82d2d, roughness: 0.38, metalness: 0.68 });
-  const blue = new THREE.MeshStandardMaterial({ color: 0x1d4db8, roughness: 0.42, metalness: 0.7 });
-  const silver = new THREE.MeshStandardMaterial({ color: 0xd0d5dc, roughness: 0.25, metalness: 0.92 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1a1f2d, roughness: 0.72, metalness: 0.22 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x75c9ff, transparent: true, opacity: 0.78, metalness: 0.2, roughness: 0.12 });
-  const yellow = new THREE.MeshStandardMaterial({ color: 0xffd84d, roughness: 0.45, metalness: 0.58 });
-
-  const hips = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 1.1), silver);
-  hips.position.y = 2.55;
-  robot.add(hips);
-
-  const chest = new THREE.Mesh(new THREE.BoxGeometry(2.9, 2, 1.25), red);
-  chest.position.y = 4.35;
-  robot.add(chest);
-
-  const ab = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.15, 0.95), silver);
-  ab.position.y = 3.2;
-  robot.add(ab);
-
-  const grill = new THREE.Mesh(new THREE.BoxGeometry(1.02, 1.2, 0.22), silver);
-  grill.position.set(0, 3.9, 0.72);
-  robot.add(grill);
-
-  const winL = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.72, 0.16), glass);
-  winL.position.set(-0.56, 4.76, 0.72);
-  robot.add(winL);
-
-  const winR = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.72, 0.16), glass);
-  winR.position.set(0.56, 4.76, 0.72);
-  robot.add(winR);
-
-  const waistLightL = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.25, 0.15), yellow);
-  waistLightL.position.set(-0.33, 2.98, 0.6);
-  robot.add(waistLightL);
-
-  const waistLightR = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.25, 0.15), yellow);
-  waistLightR.position.set(0.33, 2.98, 0.6);
-  robot.add(waistLightR);
-
-  const head = new THREE.Group();
-  const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.86, 0.85), blue);
-  helmet.position.y = 5.9;
-  head.add(helmet);
-
-  const face = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.4), silver);
-  face.position.set(0, 5.83, 0.38);
-  head.add(face);
-
-  const crestL = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.62, 4), blue);
-  crestL.position.set(-0.42, 6.18, 0);
-  crestL.rotation.z = 0.2;
-  head.add(crestL);
-
-  const crestR = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.62, 4), blue);
-  crestR.position.set(0.42, 6.18, 0);
-  crestR.rotation.z = -0.2;
-  head.add(crestR);
-
-  const eyeBar = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 0.12), new THREE.MeshStandardMaterial({ color: 0x8ee1ff, emissive: 0x2f8fc8, emissiveIntensity: 0.8 }));
-  eyeBar.position.set(0, 5.95, 0.45);
-  head.add(eyeBar);
-  robot.add(head);
-
-  const shoulderL = new THREE.Mesh(new THREE.BoxGeometry(1.28, 1.16, 1.2), red);
-  shoulderL.position.set(-2.02, 4.66, 0);
-  robot.add(shoulderL);
-
-  const shoulderR = new THREE.Mesh(new THREE.BoxGeometry(1.28, 1.16, 1.2), red);
-  shoulderR.position.set(2.02, 4.66, 0);
-  robot.add(shoulderR);
-
-  const armL = new THREE.Group();
-  const upperArmL = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.35, 0.7), dark);
-  upperArmL.position.y = -0.78;
-  armL.add(upperArmL);
-  const forearmL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.34, 0.9), red);
-  forearmL.position.y = -2.2;
-  armL.add(forearmL);
-  const handL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.48, 0.65), blue);
-  handL.position.y = -3.1;
-  armL.add(handL);
-  armL.position.set(-2.02, 4.6, 0);
-  robot.add(armL);
-
-  const armR = armL.clone(true);
-  armR.position.x = 2.02;
-  robot.add(armR);
-
-  const legL = new THREE.Group();
-  const thighL = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.56, 0.95), silver);
-  thighL.position.y = -0.85;
-  legL.add(thighL);
-  const shinL = new THREE.Mesh(new THREE.BoxGeometry(1.22, 1.85, 1.08), blue);
-  shinL.position.y = -2.55;
-  legL.add(shinL);
-  const kneeL = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.35, 0.66), yellow);
-  kneeL.position.set(0, -1.74, 0.45);
-  legL.add(kneeL);
-  const footL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 1.74), blue);
-  footL.position.set(0, -3.68, 0.27);
-  legL.add(footL);
-  legL.position.set(-0.72, 2.65, 0);
-  robot.add(legL);
-
-  const legR = legL.clone(true);
-  legR.position.x = 0.72;
-  robot.add(legR);
-
-  robot.userData = {
-    head,
-    armL,
-    armR,
-    legL,
-    legR
-  };
-
-  castShadowRecursive(robot);
-  robot.scale.setScalar(0.56);
-  robot.position.y = 0.02;
-  return robot;
-}
-
-function createOptimusTruck() {
-  const truck = new THREE.Group();
-
-  const blue = new THREE.MeshStandardMaterial({ color: 0x1d4db8, roughness: 0.42, metalness: 0.66 });
-  const red = new THREE.MeshStandardMaterial({ color: 0xd82d2d, roughness: 0.36, metalness: 0.68 });
-  const silver = new THREE.MeshStandardMaterial({ color: 0xd1d8dd, roughness: 0.24, metalness: 0.92 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1a1d27, roughness: 0.86, metalness: 0.12 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x7acbff, transparent: true, opacity: 0.8, roughness: 0.12, metalness: 0.2 });
-
-  const trailer = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2, 6.7), blue);
-  trailer.position.set(0, 1.38, -1.9);
-  truck.add(trailer);
-
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.52, 2.8), red);
-  cab.position.set(0, 1.68, 2.25);
-  truck.add(cab);
-
-  const grill = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.92, 0.3), silver);
-  grill.position.set(0, 1.3, 3.72);
-  truck.add(grill);
-
-  const winL = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.72, 0.16), glass);
-  winL.position.set(-0.5, 2.18, 3.34);
-  truck.add(winL);
-
-  const winR = winL.clone();
-  winR.position.x = 0.5;
-  truck.add(winR);
-
-  const pipeL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 2.85, 10), silver);
-  pipeL.position.set(-1.24, 2.45, 1.2);
-  truck.add(pipeL);
-
-  const pipeR = pipeL.clone();
-  pipeR.position.x = 1.24;
-  truck.add(pipeR);
-
-  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.95 });
-  const rimMat = new THREE.MeshStandardMaterial({ color: 0x9ca5ac, roughness: 0.2, metalness: 0.9 });
-  const wheelZ = [3.05, 1.25, -1.05, -3.15];
-
-  for (const z of wheelZ) {
-    for (const x of [-1.48, 1.48]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.55, 22), wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, 0.52, z);
-      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.56, 16), rimMat);
-      rim.rotation.z = Math.PI / 2;
-      wheel.add(rim);
-      truck.add(wheel);
-    }
+    cloud.position.set(THREE.MathUtils.randFloat(-35, 35), THREE.MathUtils.randFloat(14, 26), THREE.MathUtils.randFloat(-120, 20));
+    clouds.add(cloud);
   }
-
-  castShadowRecursive(truck);
-  truck.scale.setScalar(0.66);
-  truck.position.y = 0.04;
-  return truck;
 }
 
-function createBumblebee() {
-  const bot = new THREE.Group();
+addCity();
+addTrees();
+addClouds();
 
-  const yellow = new THREE.MeshStandardMaterial({ color: 0xffd330, roughness: 0.45, metalness: 0.58 });
-  const black = new THREE.MeshStandardMaterial({ color: 0x1e2129, roughness: 0.66, metalness: 0.24 });
-  const silver = new THREE.MeshStandardMaterial({ color: 0xcfd6dd, roughness: 0.25, metalness: 0.9 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x85d4ff, transparent: true, opacity: 0.76 });
+const modelUrls = {
+  robot: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r161/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+  truck: "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Assets@main/Models/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb",
+  hdr: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r161/examples/textures/equirectangular/venice_sunset_1k.hdr"
+};
 
-  const chest = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.45, 1), yellow);
-  chest.position.y = 2.88;
-  bot.add(chest);
+const loader = new GLTFLoader();
 
-  const chestStripe = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.25, 0.08), black);
-  chestStripe.position.set(0, 2.88, 0.55);
-  bot.add(chestStripe);
+const heroRoot = new THREE.Group();
+heroRoot.position.set(0, 0, 8);
+scene.add(heroRoot);
 
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.62, 0.62), black);
-  head.position.y = 3.84;
-  bot.add(head);
-
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, 0.08), glass);
-  visor.position.set(0, 3.86, 0.36);
-  bot.add(visor);
-
-  const shoulderL = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.6, 0.7), yellow);
-  shoulderL.position.set(-1.05, 3.1, 0);
-  bot.add(shoulderL);
-
-  const shoulderR = shoulderL.clone();
-  shoulderR.position.x = 1.05;
-  bot.add(shoulderR);
-
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.2, 0.52), black);
-  armL.position.set(-1.05, 2.15, 0);
-  bot.add(armL);
-
-  const armR = armL.clone();
-  armR.position.x = 1.05;
-  bot.add(armR);
-
-  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(1, 0.58, 0.72), silver);
-  pelvis.position.y = 2.02;
-  bot.add(pelvis);
-
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.56, 1.55, 0.66), yellow);
-  legL.position.set(-0.34, 1.05, 0);
-  bot.add(legL);
-
-  const legR = legL.clone();
-  legR.position.x = 0.34;
-  bot.add(legR);
-
-  const footL = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.35, 0.92), black);
-  footL.position.set(-0.34, 0.2, 0.14);
-  bot.add(footL);
-
-  const footR = footL.clone();
-  footR.position.x = 0.34;
-  bot.add(footR);
-
-  bot.userData = { armL, armR, legL, legR, head };
-
-  castShadowRecursive(bot);
-  bot.scale.setScalar(0.45);
-  bot.position.y = 0.02;
-  return bot;
-}
-
-const heroRig = new THREE.Group();
-scene.add(heroRig);
-
-const optimusRobot = createOptimusRobot();
-const optimusTruck = createOptimusTruck();
-optimusTruck.visible = false;
-heroRig.add(optimusRobot);
-heroRig.add(optimusTruck);
-heroRig.position.z = 8;
-
-const bumblebee = createBumblebee();
-bumblebee.position.set(-3.6, 0, 10.4);
-scene.add(bumblebee);
+const bumblebeeRoot = new THREE.Group();
+bumblebeeRoot.position.set(-3.3, 0, 10.8);
+scene.add(bumblebeeRoot);
 
 const obstacleGroup = new THREE.Group();
 scene.add(obstacleGroup);
-const obstacles = [];
-
 const citizenGroup = new THREE.Group();
 scene.add(citizenGroup);
-const citizens = [];
+const particleGroup = new THREE.Group();
+scene.add(particleGroup);
 
-const sparkleGroup = new THREE.Group();
-scene.add(sparkleGroup);
-const sparkles = [];
+const obstacles = [];
+const citizens = [];
+const particles = [];
 
 const state = {
   started: false,
@@ -468,29 +226,102 @@ const state = {
   saved: 0,
   targetSaved: 10,
   mode: "robot",
-  speedRobot: 0.25,
-  speedTruck: 0.36,
-  laneX: 0,
   leftDown: false,
   rightDown: false,
+  laneTarget: 0,
+  speedRobot: 0.28,
+  speedTruck: 0.39,
   transformCooldown: 0,
-  lastSpeechAt: 0,
-  bumblebeeSpeechAt: 0
+  soundsEnabled: true,
+  speechUnlocked: false,
+  lastVoiceAt: 0,
+  bumblebeeVoiceAt: 0,
+  modelsReady: false
 };
 
-const pointer = new THREE.Vector2();
-const raycaster = new THREE.Raycaster();
+const audioState = {
+  ctx: null,
+  unlocked: false
+};
+
+const controlState = {
+  swipeId: null,
+  swipeStartX: 0
+};
+
+const anim = {
+  optimusModel: null,
+  truckModel: null,
+  bumblebeeModel: null,
+  optimusMixer: null,
+  bumblebeeMixer: null,
+  optimusActions: {},
+  bumblebeeActions: {}
+};
+
+function updateHUD() {
+  scoreEl.textContent = String(state.score);
+  savedEl.textContent = String(state.saved);
+  modeEl.textContent = state.mode === "robot" ? "Robot" : "Kamion";
+  soundStateEl.textContent = state.soundsEnabled ? "Uključen" : "Isključen";
+}
+
+function setStatus(text, ok = false) {
+  statusEl.textContent = text;
+  statusEl.style.borderColor = ok ? "rgba(143,247,180,0.72)" : "rgba(255,255,255,0.14)";
+  statusEl.style.color = ok ? "var(--ok)" : "var(--text)";
+}
+
+function tone(freq = 440, duration = 0.08, type = "sine", gainValue = 0.045) {
+  if (!state.soundsEnabled || !audioState.unlocked || !audioState.ctx) {
+    return;
+  }
+
+  const ctx = audioState.ctx;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.value = gainValue;
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(gainValue, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.start(now);
+  osc.stop(now + duration);
+}
+
+function unlockAudio() {
+  if (audioState.unlocked) {
+    return;
+  }
+
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) {
+      audioState.unlocked = true;
+      return;
+    }
+    audioState.ctx = new AudioCtx();
+    audioState.unlocked = true;
+    tone(520, 0.07, "triangle", 0.03);
+  } catch {
+    audioState.unlocked = true;
+  }
+}
 
 function speakHr(text) {
-  if (!window.speechSynthesis) {
+  if (!state.soundsEnabled || !state.speechUnlocked || !window.speechSynthesis) {
     return;
   }
 
   const now = performance.now();
-  if (now - state.lastSpeechAt < 900) {
+  if (now - state.lastVoiceAt < 900) {
     return;
   }
-  state.lastSpeechAt = now;
+  state.lastVoiceAt = now;
 
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "hr-HR";
@@ -507,198 +338,411 @@ function speakHr(text) {
   speechSynthesis.speak(utter);
 }
 
-if (window.speechSynthesis) {
-  speechSynthesis.getVoices();
+function unlockSpeech() {
+  state.speechUnlocked = true;
+  if (window.speechSynthesis) {
+    speechSynthesis.getVoices();
+  }
 }
 
-function setStatus(text, ok = false) {
-  statusEl.textContent = text;
-  statusEl.style.borderColor = ok ? "rgba(143, 247, 180, 0.7)" : "rgba(255, 255, 255, 0.16)";
-  statusEl.style.color = ok ? "var(--ok)" : "var(--text)";
+function castShadowRecursive(obj) {
+  obj.traverse((n) => {
+    if (n.isMesh) {
+      n.castShadow = true;
+      n.receiveShadow = true;
+      if (n.material) {
+        n.material.envMapIntensity = 1.1;
+      }
+    }
+  });
 }
 
-function updateHUD() {
-  scoreEl.textContent = String(state.score);
-  savedEl.textContent = String(state.saved);
-  modeEl.textContent = state.mode === "robot" ? "Robot" : "Kamion";
+function recolorOptimus(model) {
+  const colors = [0xd92d2d, 0x1f4eb8, 0xd0d6de, 0x1a2030];
+  let i = 0;
+  model.traverse((n) => {
+    if (!n.isMesh || !n.material) {
+      return;
+    }
+    n.material = n.material.clone();
+    n.material.color = new THREE.Color(colors[i % colors.length]);
+    n.material.metalness = 0.6;
+    n.material.roughness = 0.38;
+    i += 1;
+  });
 }
 
-function createObstacle(zPos) {
-  const kind = Math.random();
+function recolorBumblebee(model) {
+  const colors = [0xffd13d, 0x1f1f24, 0xcbd4db, 0xf0c814];
+  let i = 0;
+  model.traverse((n) => {
+    if (!n.isMesh || !n.material) {
+      return;
+    }
+    n.material = n.material.clone();
+    n.material.color = new THREE.Color(colors[i % colors.length]);
+    n.material.metalness = 0.55;
+    n.material.roughness = 0.42;
+    i += 1;
+  });
+}
+
+function recolorTruck(model) {
+  const colors = [0xd92d2d, 0x1f4eb8, 0xd2d7dd];
+  let i = 0;
+  model.traverse((n) => {
+    if (!n.isMesh || !n.material) {
+      return;
+    }
+    n.material = n.material.clone();
+    n.material.color = new THREE.Color(colors[i % colors.length]);
+    n.material.metalness = 0.7;
+    n.material.roughness = 0.35;
+    i += 1;
+  });
+}
+
+function activateAction(actionMap, clipName, fade = 0.2) {
+  Object.values(actionMap).forEach((action) => {
+    action.fadeOut(fade);
+  });
+
+  const target = actionMap[clipName];
+  if (target) {
+    target.reset().fadeIn(fade).play();
+  }
+}
+
+async function addEnvironmentMap() {
+  try {
+    const hdr = await new RGBELoader().loadAsync(modelUrls.hdr);
+    hdr.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = hdr;
+  } catch {
+    // fallback lighting only
+  }
+}
+
+async function loadModels() {
+  const robotGltf = await loader.loadAsync(modelUrls.robot);
+  const truckGltf = await loader.loadAsync(modelUrls.truck);
+
+  const optimus = clone(robotGltf.scene);
+  recolorOptimus(optimus);
+  castShadowRecursive(optimus);
+  optimus.scale.setScalar(0.47);
+  optimus.position.y = 0.02;
+
+  const truck = truckGltf.scene;
+  recolorTruck(truck);
+  castShadowRecursive(truck);
+  truck.scale.setScalar(2.15);
+  truck.rotation.y = Math.PI;
+  truck.position.set(0, 0.03, 0);
+  truck.visible = false;
+
+  const bumblebee = clone(robotGltf.scene);
+  recolorBumblebee(bumblebee);
+  castShadowRecursive(bumblebee);
+  bumblebee.scale.setScalar(0.39);
+  bumblebee.position.y = 0.02;
+
+  heroRoot.add(optimus);
+  heroRoot.add(truck);
+  bumblebeeRoot.add(bumblebee);
+
+  const optimusMixer = new THREE.AnimationMixer(optimus);
+  const bumblebeeMixer = new THREE.AnimationMixer(bumblebee);
+
+  const optimusActions = {};
+  const bumblebeeActions = {};
+
+  for (const clip of robotGltf.animations) {
+    optimusActions[clip.name] = optimusMixer.clipAction(clip);
+    bumblebeeActions[clip.name] = bumblebeeMixer.clipAction(clip);
+  }
+
+  anim.optimusModel = optimus;
+  anim.truckModel = truck;
+  anim.bumblebeeModel = bumblebee;
+  anim.optimusMixer = optimusMixer;
+  anim.bumblebeeMixer = bumblebeeMixer;
+  anim.optimusActions = optimusActions;
+  anim.bumblebeeActions = bumblebeeActions;
+
+  activateAction(anim.optimusActions, "Running", 0.2);
+  activateAction(anim.bumblebeeActions, "Walking", 0.25);
+}
+
+function buildFallbackRobot(primary = 0xd92d2d, secondary = 0x1f4eb8) {
+  const g = new THREE.Group();
+  const matA = new THREE.MeshStandardMaterial({ color: primary, metalness: 0.55, roughness: 0.4 });
+  const matB = new THREE.MeshStandardMaterial({ color: secondary, metalness: 0.55, roughness: 0.45 });
+  const matC = new THREE.MeshStandardMaterial({ color: 0xd0d6de, metalness: 0.75, roughness: 0.28 });
+
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 1), matA);
+  chest.position.y = 2.8;
+  g.add(chest);
+
+  const hips = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.8), matC);
+  hips.position.y = 1.8;
+  g.add(hips);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.6, 0.6), matB);
+  head.position.y = 3.9;
+  g.add(head);
+
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.5, 0.56), matC);
+  legL.position.set(-0.34, 0.78, 0);
+  g.add(legL);
+  const legR = legL.clone();
+  legR.position.x = 0.34;
+  g.add(legR);
+
+  const footL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.3, 0.82), matB);
+  footL.position.set(-0.34, 0.05, 0.12);
+  g.add(footL);
+  const footR = footL.clone();
+  footR.position.x = 0.34;
+  g.add(footR);
+
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.25, 0.48), matA);
+  armL.position.set(-1.18, 2.7, 0);
+  g.add(armL);
+  const armR = armL.clone();
+  armR.position.x = 1.18;
+  g.add(armR);
+
+  castShadowRecursive(g);
+  return g;
+}
+
+function buildFallbackTruck() {
+  const g = new THREE.Group();
+  const red = new THREE.MeshStandardMaterial({ color: 0xd92d2d, metalness: 0.6, roughness: 0.35 });
+  const blue = new THREE.MeshStandardMaterial({ color: 0x1f4eb8, metalness: 0.6, roughness: 0.38 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x181a20, roughness: 0.85 });
+
+  const trailer = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.9, 6.5), blue);
+  trailer.position.set(0, 1.3, -1.9);
+  g.add(trailer);
+
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(2.7, 2.4, 2.6), red);
+  cab.position.set(0, 1.6, 2.2);
+  g.add(cab);
+
+  const wheelZ = [2.9, 1.1, -1.1, -3.1];
+  for (const z of wheelZ) {
+    for (const x of [-1.45, 1.45]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.52, 18), dark);
+      w.rotation.z = Math.PI / 2;
+      w.position.set(x, 0.48, z);
+      g.add(w);
+    }
+  }
+
+  g.scale.setScalar(0.67);
+  castShadowRecursive(g);
+  return g;
+}
+
+function useFallbackModels() {
+  const optimus = buildFallbackRobot(0xd92d2d, 0x1f4eb8);
+  const truck = buildFallbackTruck();
+  const bumblebee = buildFallbackRobot(0xffd13d, 0x222222);
+
+  truck.visible = false;
+  bumblebee.scale.setScalar(0.85);
+
+  heroRoot.add(optimus);
+  heroRoot.add(truck);
+  bumblebeeRoot.add(bumblebee);
+
+  anim.optimusModel = optimus;
+  anim.truckModel = truck;
+  anim.bumblebeeModel = bumblebee;
+  anim.optimusMixer = null;
+  anim.bumblebeeMixer = null;
+  anim.optimusActions = {};
+  anim.bumblebeeActions = {};
+}
+
+function spawnObstacle(zPos) {
+  const type = Math.random();
   let mesh;
 
-  if (kind < 0.35) {
+  if (type < 0.35) {
     mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(1.7, 1.7, 1.7),
-      new THREE.MeshStandardMaterial({ color: 0xa37245, roughness: 0.85, metalness: 0.04 })
+      new THREE.BoxGeometry(1.8, 1.8, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0xa67a4d, roughness: 0.82 })
     );
     mesh.position.y = 0.9;
-  } else if (kind < 0.7) {
+  } else if (type < 0.7) {
     mesh = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(1.08, 0),
-      new THREE.MeshStandardMaterial({ color: 0x8f9eae, roughness: 0.8, metalness: 0.1 })
+      new THREE.DodecahedronGeometry(1.1, 0),
+      new THREE.MeshStandardMaterial({ color: 0x8b9eae, roughness: 0.75 })
     );
     mesh.position.y = 1.05;
   } else {
     mesh = new THREE.Mesh(
-      new THREE.ConeGeometry(0.95, 1.8, 8),
-      new THREE.MeshStandardMaterial({ color: 0xf1883d, roughness: 0.75, metalness: 0.05 })
+      new THREE.ConeGeometry(0.9, 1.85, 8),
+      new THREE.MeshStandardMaterial({ color: 0xf19744, roughness: 0.72 })
     );
     mesh.position.y = 0.96;
   }
 
-  mesh.position.x = THREE.MathUtils.randFloat(-3.6, 3.6);
+  mesh.position.x = THREE.MathUtils.randFloat(-3.8, 3.8);
   mesh.position.z = zPos;
   mesh.userData = {
-    radius: 1.15,
+    radius: 1.2,
     baseY: mesh.position.y,
     cleared: false,
     remove: false
   };
-
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  obstacles.push(mesh);
+
   obstacleGroup.add(mesh);
+  obstacles.push(mesh);
 }
 
-function createCitizen(zPos) {
-  const person = new THREE.Group();
-  const color = [0x7ed6df, 0xffbe76, 0xff7979, 0x95afc0][Math.floor(Math.random() * 4)];
+function spawnCitizen(zPos) {
+  const g = new THREE.Group();
+  const colors = [0x7ed6df, 0xffbe76, 0xf5a5c1, 0x95afc0];
+  const bodyMat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)], roughness: 0.78 });
 
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.34, 0.6, 4, 8),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
-  );
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.6, 4, 8), bodyMat);
   body.position.y = 0.86;
-  person.add(body);
+  g.add(body);
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(0.3, 14, 12),
     new THREE.MeshStandardMaterial({ color: 0xffd8b5, roughness: 0.78 })
   );
   head.position.y = 1.62;
-  person.add(head);
+  g.add(head);
 
-  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), body.material);
-  handL.position.set(-0.34, 1.03, 0);
-  person.add(handL);
+  g.position.set(THREE.MathUtils.randFloat(-3.5, 3.5), 0, zPos);
+  g.userData = { saved: false };
+  castShadowRecursive(g);
 
-  const handR = handL.clone();
-  handR.position.x = 0.34;
-  person.add(handR);
-
-  person.position.set(THREE.MathUtils.randFloat(-3.5, 3.5), 0, zPos);
-  person.userData = { saved: false };
-  castShadowRecursive(person);
-
-  citizens.push(person);
-  citizenGroup.add(person);
+  citizenGroup.add(g);
+  citizens.push(g);
 }
 
-function sparkleBurst(position, color = 0xfff08a) {
+function burst(position, color = 0xfff08a) {
   for (let i = 0; i < 12; i++) {
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({ color, transparent: true, opacity: 0.96 })
-    );
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ color, transparent: true, opacity: 0.95 }));
     sprite.position.copy(position);
-    sprite.position.x += THREE.MathUtils.randFloatSpread(1.5);
-    sprite.position.y += THREE.MathUtils.randFloat(0.5, 1.8);
-    sprite.position.z += THREE.MathUtils.randFloatSpread(1.5);
-    sprite.scale.setScalar(0.35 + Math.random() * 0.4);
-
+    sprite.position.x += THREE.MathUtils.randFloatSpread(1.4);
+    sprite.position.y += THREE.MathUtils.randFloat(0.4, 1.7);
+    sprite.position.z += THREE.MathUtils.randFloatSpread(1.4);
+    sprite.scale.setScalar(0.35 + Math.random() * 0.45);
     sprite.userData = {
       v: new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(0.05),
         THREE.MathUtils.randFloat(0.02, 0.06),
         THREE.MathUtils.randFloatSpread(0.05)
       ),
-      life: 50 + Math.random() * 18
+      life: 50 + Math.random() * 16
     };
-
-    sparkles.push(sprite);
-    sparkleGroup.add(sprite);
+    particles.push(sprite);
+    particleGroup.add(sprite);
   }
 }
 
-function populateLevel() {
-  for (const o of obstacles) {
-    obstacleGroup.remove(o);
-  }
+function clearLevel() {
+  obstacles.forEach((o) => obstacleGroup.remove(o));
+  citizens.forEach((c) => citizenGroup.remove(c));
+  particles.forEach((p) => particleGroup.remove(p));
   obstacles.length = 0;
-
-  for (const c of citizens) {
-    citizenGroup.remove(c);
-  }
   citizens.length = 0;
+  particles.length = 0;
+}
 
-  for (const s of sparkles) {
-    sparkleGroup.remove(s);
+function populateLevel() {
+  clearLevel();
+  for (let i = 0; i < 42; i++) {
+    spawnObstacle(-16 - i * THREE.MathUtils.randFloat(7.3, 10.2));
   }
-  sparkles.length = 0;
-
-  for (let i = 0; i < 40; i++) {
-    createObstacle(-15 - i * THREE.MathUtils.randFloat(7.5, 10.5));
-  }
-
   for (let i = 0; i < state.targetSaved; i++) {
-    createCitizen(-32 - i * 18);
+    spawnCitizen(-34 - i * 18);
   }
 }
 
 function setMode(mode) {
   state.mode = mode;
-  const robotMode = mode === "robot";
-  optimusRobot.visible = robotMode;
-  optimusTruck.visible = !robotMode;
+  if (anim.optimusModel && anim.truckModel) {
+    anim.optimusModel.visible = mode === "robot";
+    anim.truckModel.visible = mode === "truck";
+  }
+
+  if (mode === "robot") {
+    activateAction(anim.optimusActions, "Running", 0.15);
+  } else {
+    Object.values(anim.optimusActions).forEach((a) => a.fadeOut(0.15));
+  }
+
   updateHUD();
 }
 
 function toggleTransform() {
-  if (state.transformCooldown > 0 || state.ended) {
+  if (!state.modelsReady || state.ended || state.transformCooldown > 0) {
     return;
   }
 
   if (!state.started) {
-    state.started = true;
-    setStatus("Misija je krenula. Optimus je u pokretu.");
-    speakHr("Krećemo u akciju.");
+    startMission();
   }
 
+  state.transformCooldown = 0.7;
   const next = state.mode === "robot" ? "truck" : "robot";
   setMode(next);
-  state.transformCooldown = 0.8;
 
   if (next === "truck") {
-    setStatus("Transformacija završena. Optimus je kamion.");
+    setStatus("Transformacija: Optimus je sada kamion.");
     speakHr("Transformiram se u kamion.");
+    tone(330, 0.09, "square", 0.03);
   } else {
-    setStatus("Optimus je opet robot.");
-    speakHr("Vraćam se u robotski oblik.");
+    setStatus("Transformacija: Optimus je sada robot.");
+    speakHr("Vraćam se u robotski način.");
+    tone(620, 0.09, "triangle", 0.03);
   }
 
-  sparkleBurst(heroRig.position.clone().add(new THREE.Vector3(0, 2, 0)), 0x8ddcff);
+  burst(heroRoot.position.clone().add(new THREE.Vector3(0, 2.1, 0)), 0x8fd9ff);
+}
+
+function startMission() {
+  if (state.started || state.ended) {
+    return;
+  }
+  unlockAudio();
+  unlockSpeech();
+  state.started = true;
+  setStatus("Misija je krenula. Vodi Optimusa kroz grad.");
+  speakHr("Krećemo. Bumblebee, prati me.");
+  tone(520, 0.08, "triangle", 0.03);
 }
 
 function resetGame() {
   populateLevel();
-  heroRig.position.set(0, 0, 8);
-  bumblebee.position.set(-3.6, 0, 10.4);
+  heroRoot.position.set(0, 0, 8);
+  bumblebeeRoot.position.set(-3.3, 0, 10.8);
 
   state.started = false;
   state.ended = false;
   state.score = 0;
   state.saved = 0;
-  state.laneX = 0;
-  state.transformCooldown = 0;
-  state.bumblebeeSpeechAt = 0;
-  state.lastSpeechAt = 0;
   state.leftDown = false;
   state.rightDown = false;
+  state.laneTarget = 0;
+  state.transformCooldown = 0;
+  state.lastVoiceAt = 0;
+  state.bumblebeeVoiceAt = 0;
 
   setMode("robot");
   updateHUD();
-  setStatus("Dodirni ekran za početak misije");
+  setStatus(state.modelsReady ? "Dodirni ekran za početak misije" : "Učitavanje 3D modela...");
   restartBtn.classList.add("hidden");
 }
 
@@ -707,97 +751,98 @@ function endGame(win) {
   restartBtn.classList.remove("hidden");
 
   if (win) {
-    setStatus("Bravo! Grad je siguran.", true);
+    setStatus("Bravo! Grad je spašen.", true);
     speakHr("Odlično. Grad je spašen.");
+    tone(780, 0.15, "triangle", 0.04);
   } else {
-    setStatus("Prepreka je bila prejaka. Pokušaj opet.");
-    speakHr("Pokušaj ponovno. Možemo to.");
+    setStatus("Sudar. Pokušaj ponovno.");
+    speakHr("Pokušaj ponovno. Uspjet ćemo.");
+    tone(180, 0.12, "sawtooth", 0.03);
   }
 }
 
-function screenToNdc(clientX, clientY) {
-  return {
-    x: (clientX / window.innerWidth) * 2 - 1,
-    y: -(clientY / window.innerHeight) * 2 + 1
-  };
-}
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
 
-function clearObstacleByPointer(clientX, clientY) {
-  const ndc = screenToNdc(clientX, clientY);
-  pointer.set(ndc.x, ndc.y);
+function tryClearObstacle(clientX, clientY) {
+  const x = (clientX / window.innerWidth) * 2 - 1;
+  const y = -(clientY / window.innerHeight) * 2 + 1;
+  pointer.set(x, y);
   raycaster.setFromCamera(pointer, camera);
 
   const hits = raycaster.intersectObjects(obstacles, false);
   if (hits.length === 0) {
-    return false;
+    return;
   }
 
-  const hit = hits[0].object;
-  if (hit.userData.cleared) {
-    return false;
+  const obstacle = hits[0].object;
+  if (obstacle.userData.cleared) {
+    return;
   }
 
-  hit.userData.cleared = true;
+  obstacle.userData.cleared = true;
   state.score += 12;
   updateHUD();
-  sparkleBurst(hit.position.clone(), 0xfff08a);
-  speakHr("Put je čist.");
-  return true;
+  burst(obstacle.position.clone(), 0xffef97);
+  tone(640, 0.06, "square", 0.025);
 }
 
-function onPointerDown(event) {
-  if (event.target.closest("#controls") || event.target === restartBtn) {
-    return;
-  }
+function bindMoveButton(button, dir) {
+  const setDown = (isDown) => {
+    if (dir === "left") {
+      state.leftDown = isDown;
+    } else {
+      state.rightDown = isDown;
+    }
+  };
 
-  if (state.ended) {
-    return;
-  }
-
-  if (!state.started) {
-    state.started = true;
-    setStatus("Odlično. Optimus brzo hoda kroz grad.");
-    speakHr("Krećemo. Prati me, Bumblebee.");
-  }
-
-  clearObstacleByPointer(event.clientX, event.clientY);
-}
-
-window.addEventListener("pointerdown", onPointerDown);
-
-function bindHoldButton(button, setValue) {
   const onDown = (event) => {
     event.preventDefault();
-    if (!state.started && !state.ended) {
-      state.started = true;
-      setStatus("Misija je krenula. Čuvaj cestu.");
-      speakHr("Idemo spasiti grad.");
-    }
-    setValue(true);
+    startMission();
+    setDown(true);
+    state.laneTarget += dir === "left" ? -0.95 : 0.95;
+    state.laneTarget = THREE.MathUtils.clamp(state.laneTarget, -4.9, 4.9);
   };
 
   const onUp = (event) => {
     event.preventDefault();
-    setValue(false);
+    setDown(false);
   };
 
-  button.addEventListener("pointerdown", onDown);
-  button.addEventListener("pointerup", onUp);
-  button.addEventListener("pointerleave", onUp);
-  button.addEventListener("pointercancel", onUp);
+  ["pointerdown", "touchstart", "mousedown"].forEach((evt) => {
+    button.addEventListener(evt, onDown, { passive: false });
+  });
+  ["pointerup", "pointercancel", "pointerleave", "touchend", "touchcancel", "mouseup"].forEach((evt) => {
+    button.addEventListener(evt, onUp, { passive: false });
+  });
 }
 
-bindHoldButton(leftBtn, (v) => {
-  state.leftDown = v;
+bindMoveButton(leftBtn, "left");
+bindMoveButton(rightBtn, "right");
+
+["click", "touchend", "pointerup"].forEach((evt) => {
+  transformBtn.addEventListener(evt, (event) => {
+    event.preventDefault();
+    startMission();
+    toggleTransform();
+  }, { passive: false });
 });
 
-bindHoldButton(rightBtn, (v) => {
-  state.rightDown = v;
-});
-
-transformBtn.addEventListener("click", (event) => {
+soundBtn.addEventListener("click", (event) => {
   event.preventDefault();
-  toggleTransform();
+  unlockAudio();
+  unlockSpeech();
+  state.soundsEnabled = !state.soundsEnabled;
+  updateHUD();
+  if (state.soundsEnabled) {
+    tone(590, 0.07, "triangle", 0.03);
+    setStatus("Zvuk je uključen.");
+  } else {
+    if (window.speechSynthesis) {
+      speechSynthesis.cancel();
+    }
+    setStatus("Zvuk je isključen.");
+  }
 });
 
 restartBtn.addEventListener("click", () => {
@@ -806,12 +851,15 @@ restartBtn.addEventListener("click", () => {
 
 window.addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
+    startMission();
     state.leftDown = true;
   }
   if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
+    startMission();
     state.rightDown = true;
   }
   if (event.key.toLowerCase() === "t") {
+    startMission();
     toggleTransform();
   }
 });
@@ -825,6 +873,39 @@ window.addEventListener("keyup", (event) => {
   }
 });
 
+window.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("#controls") || event.target.closest("#utilityButtons") || event.target === restartBtn) {
+    return;
+  }
+
+  unlockAudio();
+  unlockSpeech();
+  startMission();
+
+  controlState.swipeId = event.pointerId;
+  controlState.swipeStartX = event.clientX;
+  tryClearObstacle(event.clientX, event.clientY);
+});
+
+window.addEventListener("pointermove", (event) => {
+  if (controlState.swipeId !== event.pointerId || state.ended) {
+    return;
+  }
+
+  const dx = event.clientX - controlState.swipeStartX;
+  if (Math.abs(dx) > 30) {
+    state.laneTarget += dx > 0 ? 0.9 : -0.9;
+    state.laneTarget = THREE.MathUtils.clamp(state.laneTarget, -4.9, 4.9);
+    controlState.swipeStartX = event.clientX;
+  }
+});
+
+window.addEventListener("pointerup", (event) => {
+  if (controlState.swipeId === event.pointerId) {
+    controlState.swipeId = null;
+  }
+});
+
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -834,149 +915,179 @@ window.addEventListener("resize", () => {
 
 const clock = new THREE.Clock();
 
-function animateRobot(robot, t, movingSpeed) {
-  const walkStrength = 0.6 + movingSpeed * 0.5;
-  const phase = t * 9 * walkStrength;
-
-  robot.userData.legL.rotation.x = Math.sin(phase) * 0.55;
-  robot.userData.legR.rotation.x = -Math.sin(phase) * 0.55;
-  robot.userData.armL.rotation.x = -Math.sin(phase) * 0.45;
-  robot.userData.armR.rotation.x = Math.sin(phase) * 0.45;
-  robot.userData.head.rotation.y = Math.sin(t * 1.5) * 0.08;
-
-  robot.position.y = 0.02 + Math.abs(Math.sin(phase)) * 0.12;
-}
-
-function animateBumblebee(t, speed) {
-  const phase = t * 10 * (0.7 + speed);
-  bumblebee.userData.legL.rotation.x = Math.sin(phase) * 0.6;
-  bumblebee.userData.legR.rotation.x = -Math.sin(phase) * 0.6;
-  bumblebee.userData.armL.rotation.x = -Math.sin(phase) * 0.5;
-  bumblebee.userData.armR.rotation.x = Math.sin(phase) * 0.5;
-  bumblebee.userData.head.rotation.y = Math.sin(t * 2) * 0.12;
-  bumblebee.position.y = 0.02 + Math.abs(Math.sin(phase)) * 0.08;
-}
-
-function loop() {
-  const dt = Math.min(clock.getDelta(), 0.033);
-  const t = performance.now() * 0.001;
-
-  clouds.children.forEach((cloud, i) => {
-    cloud.position.x += Math.sin(t * 0.12 + i) * 0.003;
+function animateClouds(time) {
+  clouds.children.forEach((cloud, idx) => {
+    cloud.position.x += Math.sin(time * 0.1 + idx) * 0.003;
   });
+}
+
+function animateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.position.add(p.userData.v);
+    p.userData.life -= 1;
+    p.material.opacity = Math.max(0, p.userData.life / 65);
+    if (p.userData.life <= 0) {
+      particleGroup.remove(p);
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function animateGame(dt, time) {
+  if (!state.started || state.ended || !state.modelsReady) {
+    return;
+  }
 
   if (state.transformCooldown > 0) {
     state.transformCooldown = Math.max(0, state.transformCooldown - dt);
   }
 
-  if (state.started && !state.ended) {
-    const turnSpeed = state.mode === "robot" ? 4.8 : 5.8;
-    if (state.leftDown) {
-      state.laneX -= turnSpeed * dt;
-    }
-    if (state.rightDown) {
-      state.laneX += turnSpeed * dt;
-    }
-    state.laneX = THREE.MathUtils.clamp(state.laneX, -4.6, 4.6);
+  const steerSpeed = state.mode === "robot" ? 5 : 6.2;
+  if (state.leftDown) {
+    state.laneTarget -= steerSpeed * dt;
+  }
+  if (state.rightDown) {
+    state.laneTarget += steerSpeed * dt;
+  }
+  state.laneTarget = THREE.MathUtils.clamp(state.laneTarget, -4.9, 4.9);
 
-    const speed = state.mode === "robot" ? state.speedRobot : state.speedTruck;
-    heroRig.position.z -= speed;
-    heroRig.position.x += (state.laneX - heroRig.position.x) * 0.15;
+  const speed = state.mode === "robot" ? state.speedRobot : state.speedTruck;
+  heroRoot.position.z -= speed;
+  heroRoot.position.x += (state.laneTarget - heroRoot.position.x) * 0.16;
 
-    if (state.mode === "robot") {
-      animateRobot(optimusRobot, t, speed);
-    } else {
-      optimusTruck.position.y = 0.04 + Math.sin(t * 22) * 0.03;
-    }
-
-    const bTargetX = heroRig.position.x - 3.2;
-    const bTargetZ = heroRig.position.z + 2.7;
-    bumblebee.position.x += (bTargetX - bumblebee.position.x) * 0.1;
-    bumblebee.position.z += (bTargetZ - bumblebee.position.z) * 0.1;
-    animateBumblebee(t, speed);
-
-    if (t - state.bumblebeeSpeechAt > 12) {
-      state.bumblebeeSpeechAt = t;
-      speakHr("Bumblebee: Tu sam, Optimuse.");
-    }
-
-    const collisionRadius = state.mode === "robot" ? 1.05 : 1.3;
-
-    for (const obs of obstacles) {
-      if (obs.userData.cleared) {
-        obs.rotation.x += dt * 6;
-        obs.rotation.y += dt * 4;
-        obs.position.y += dt * 6.4;
-        obs.material.transparent = true;
-        obs.material.opacity = Math.max(0, (obs.material.opacity ?? 1) - dt * 2.1);
-
-        if (obs.position.y > 8) {
-          obs.userData.remove = true;
-          obstacleGroup.remove(obs);
-        }
-        continue;
-      }
-
-      obs.position.y = obs.userData.baseY + Math.sin(t * 2.8 + obs.position.z * 0.5) * 0.08;
-
-      const dz = Math.abs(obs.position.z - heroRig.position.z);
-      const dx = Math.abs(obs.position.x - heroRig.position.x);
-      if (dz < collisionRadius + obs.userData.radius && dx < 1.65) {
-        endGame(false);
-      }
-    }
-
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-      if (obstacles[i].userData.remove) {
-        obstacles.splice(i, 1);
-      }
-    }
-
-    for (const citizen of citizens) {
-      if (citizen.userData.saved) {
-        citizen.position.y = Math.sin(t * 8) * 0.08;
-        continue;
-      }
-
-      const dz = Math.abs(citizen.position.z - heroRig.position.z);
-      const dx = Math.abs(citizen.position.x - heroRig.position.x);
-      if (dz < 1.9 && dx < 2.1) {
-        citizen.userData.saved = true;
-        state.saved += 1;
-        state.score += 30;
-        updateHUD();
-        sparkleBurst(citizen.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0x9cffd8);
-        speakHr("Građanin je spašen.");
-
-        if (state.saved >= state.targetSaved) {
-          endGame(true);
-        }
-      }
-    }
-
-    for (let i = sparkles.length - 1; i >= 0; i--) {
-      const s = sparkles[i];
-      s.position.add(s.userData.v);
-      s.userData.life -= 1;
-      s.material.opacity = Math.max(0, s.userData.life / 65);
-      if (s.userData.life <= 0) {
-        sparkleGroup.remove(s);
-        sparkles.splice(i, 1);
-      }
-    }
-
-    const camX = heroRig.position.x * 0.42;
-    const camY = state.mode === "robot" ? 8.3 : 7.3;
-    const camZ = heroRig.position.z + (state.mode === "robot" ? 16.4 : 14.8);
-    camera.position.x += (camX - camera.position.x) * 0.07;
-    camera.position.y += (camY - camera.position.y) * 0.07;
-    camera.position.z += (camZ - camera.position.z) * 0.08;
+  if (anim.truckModel && state.mode === "truck") {
+    anim.truckModel.position.y = 0.03 + Math.sin(time * 20) * 0.028;
+  }
+  if (!anim.optimusMixer && anim.optimusModel && state.mode === "robot") {
+    anim.optimusModel.position.y = 0.02 + Math.abs(Math.sin(time * 10)) * 0.08;
+    anim.optimusModel.rotation.y = Math.sin(time * 4) * 0.06;
   }
 
-  camera.lookAt(heroRig.position.x, 2.8, heroRig.position.z - 8.5);
-  renderer.render(scene, camera);
-  requestAnimationFrame(loop);
+  const bTargetX = heroRoot.position.x - 3.2;
+  const bTargetZ = heroRoot.position.z + 2.7;
+  bumblebeeRoot.position.x += (bTargetX - bumblebeeRoot.position.x) * 0.1;
+  bumblebeeRoot.position.z += (bTargetZ - bumblebeeRoot.position.z) * 0.1;
+
+  if (anim.bumblebeeActions.Walking) {
+    anim.bumblebeeActions.Walking.setEffectiveTimeScale(1.1 + speed * 0.7);
+  }
+  if (!anim.bumblebeeMixer && anim.bumblebeeModel) {
+    anim.bumblebeeModel.position.y = 0.02 + Math.abs(Math.sin(time * 11)) * 0.08;
+    anim.bumblebeeModel.rotation.y = Math.sin(time * 5) * 0.08;
+  }
+
+  if (time - state.bumblebeeVoiceAt > 11) {
+    state.bumblebeeVoiceAt = time;
+    speakHr("Bumblebee: Tu sam, Optimuse.");
+  }
+
+  const collisionRadius = state.mode === "robot" ? 1.08 : 1.32;
+
+  for (const obs of obstacles) {
+    if (obs.userData.cleared) {
+      obs.rotation.x += dt * 5.5;
+      obs.rotation.y += dt * 4.3;
+      obs.position.y += dt * 6.4;
+      obs.material.transparent = true;
+      obs.material.opacity = Math.max(0, (obs.material.opacity ?? 1) - dt * 2.15);
+      if (obs.position.y > 8) {
+        obs.userData.remove = true;
+        obstacleGroup.remove(obs);
+      }
+      continue;
+    }
+
+    obs.position.y = obs.userData.baseY + Math.sin(time * 2.7 + obs.position.z * 0.4) * 0.08;
+
+    const dz = Math.abs(obs.position.z - heroRoot.position.z);
+    const dx = Math.abs(obs.position.x - heroRoot.position.x);
+    if (dz < collisionRadius + obs.userData.radius && dx < 1.7) {
+      endGame(false);
+      break;
+    }
+  }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    if (obstacles[i].userData.remove) {
+      obstacles.splice(i, 1);
+    }
+  }
+
+  for (const citizen of citizens) {
+    if (citizen.userData.saved) {
+      citizen.position.y = Math.sin(time * 8) * 0.08;
+      continue;
+    }
+
+    const dz = Math.abs(citizen.position.z - heroRoot.position.z);
+    const dx = Math.abs(citizen.position.x - heroRoot.position.x);
+    if (dz < 1.9 && dx < 2.1) {
+      citizen.userData.saved = true;
+      state.saved += 1;
+      state.score += 30;
+      updateHUD();
+      burst(citizen.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 0x8ff5c0);
+      tone(710, 0.08, "triangle", 0.03);
+      speakHr("Građanin je spašen.");
+
+      if (state.saved >= state.targetSaved) {
+        endGame(true);
+      }
+    }
+  }
+
+  const camX = heroRoot.position.x * 0.44;
+  const camY = state.mode === "robot" ? 8.1 : 7.2;
+  const camZ = heroRoot.position.z + (state.mode === "robot" ? 16 : 14.4);
+  camera.position.x += (camX - camera.position.x) * 0.07;
+  camera.position.y += (camY - camera.position.y) * 0.07;
+  camera.position.z += (camZ - camera.position.z) * 0.08;
 }
 
-resetGame();
-loop();
+function render() {
+  const dt = Math.min(clock.getDelta(), 0.033);
+  const time = performance.now() * 0.001;
+
+  if (anim.optimusMixer) {
+    anim.optimusMixer.update(dt);
+    if (anim.optimusActions.Running) {
+      anim.optimusActions.Running.setEffectiveTimeScale(1 + (state.mode === "robot" ? 0.5 : 0));
+    }
+  }
+  if (anim.bumblebeeMixer) {
+    anim.bumblebeeMixer.update(dt);
+  }
+
+  animateClouds(time);
+  animateGame(dt, time);
+  animateParticles();
+
+  camera.lookAt(heroRoot.position.x, 2.6, heroRoot.position.z - 8.3);
+  renderer.render(scene, camera);
+  requestAnimationFrame(render);
+}
+
+async function init() {
+  updateHUD();
+  resetGame();
+
+  await Promise.allSettled([addEnvironmentMap(), loadModels()]);
+
+  if (!anim.optimusModel || !anim.truckModel || !anim.bumblebeeModel) {
+    useFallbackModels();
+    setStatus("Neki modeli nisu učitani, uključena je lokalna 3D zamjena.");
+  }
+
+  state.modelsReady = true;
+  if (statusEl.textContent.includes("zamjena")) {
+    setTimeout(() => {
+      setStatus("Dodirni ekran za početak misije");
+    }, 1500);
+  } else {
+    setStatus("Dodirni ekran za početak misije");
+  }
+  render();
+}
+
+init();

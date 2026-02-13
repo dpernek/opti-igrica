@@ -11,22 +11,27 @@
     <main id="app">
       <header class="hud top-left">
         <h1>Optimus spašava grad</h1>
-        <p>Optimus brzo hoda kroz grad. Dodirni prepreke i spašavaj građane.</p>
+        <p>iPad način: vodi Optimusa, transformiraj ga u kamion i spasi grad s Bumblebeejem.</p>
       </header>
 
       <section class="hud top-right">
         <p>Bodovi: <span id="score">0</span></p>
         <p>Spašeni građani: <span id="saved">0</span>/10</p>
         <p>Oblik: <span id="mode">Robot</span></p>
+        <p>Zvuk: <span id="soundState">Uključen</span></p>
       </section>
 
-      <section class="hud bottom-center" id="status">Dodirni ekran za početak misije</section>
+      <section class="hud bottom-center" id="status">Učitavanje 3D modela...</section>
 
       <section id="controls" aria-label="Kontrole igre">
         <button id="leftBtn" class="ctrl-btn" aria-label="Skreni lijevo">Lijevo</button>
         <button id="transformBtn" class="ctrl-btn transform" aria-label="Transformiraj Optimusa">Transformiraj</button>
         <button id="rightBtn" class="ctrl-btn" aria-label="Skreni desno">Desno</button>
       </section>
+
+      <div id="utilityButtons">
+        <button id="soundBtn" class="util-btn" aria-label="Uključi ili isključi zvuk">Zvuk</button>
+      </div>
 
       <button id="restart" class="hidden">Igraj opet</button>
     </main>
