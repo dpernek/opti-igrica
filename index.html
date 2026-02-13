@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Optimus spašava grad</title>
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header class="hud top-left">
+        <h1>Optimus spašava grad</h1>
+        <p>Dodirni prepreke da očistiš put.</p>
+      </header>
+
+      <section class="hud top-right">
+        <p>Bodovi: <span id="score">0</span></p>
+        <p>Spašeni građani: <span id="saved">0</span>/8</p>
+      </section>
+
+      <section class="hud bottom-center" id="status">Dodirni ekran za početak vožnje</section>
+
+      <button id="restart" class="hidden">Igraj opet</button>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>

@@ -1,0 +1,115 @@
+:root {
+  --bg1: #8bd5ff;
+  --bg2: #e6f7ff;
+  --hud: rgba(16, 28, 40, 0.75);
+  --text: #ffffff;
+  --accent: #ffd166;
+  --ok: #7ef29a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at 20% 10%, var(--bg2), var(--bg1));
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+canvas {
+  display: block;
+}
+
+.hud {
+  position: absolute;
+  color: var(--text);
+  background: var(--hud);
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 12px 16px;
+  backdrop-filter: blur(4px);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.top-left {
+  top: 14px;
+  left: 14px;
+  max-width: 330px;
+}
+
+.top-left h1 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+}
+
+.top-left p,
+.top-right p {
+  margin: 3px 0;
+  font-size: 0.98rem;
+}
+
+.top-right {
+  top: 14px;
+  right: 14px;
+  min-width: 190px;
+}
+
+.bottom-center {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  font-size: 1rem;
+}
+
+#restart {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: none;
+  background: linear-gradient(135deg, #f94144, #f3722c);
+  color: white;
+  font-size: 1.1rem;
+  padding: 14px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+#restart:hover {
+  filter: brightness(1.1);
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .top-left,
+  .top-right {
+    font-size: 0.9rem;
+    padding: 10px 12px;
+  }
+
+  .top-left {
+    max-width: 62vw;
+  }
+
+  .top-right {
+    min-width: 145px;
+  }
+
+  .bottom-center {
+    width: calc(100vw - 24px);
+    text-align: center;
+  }
+}
