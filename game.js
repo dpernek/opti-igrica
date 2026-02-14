@@ -1,6 +1,6 @@
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import { OrbitControls } from "https://unpkg.com/three@0.164.1/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "https://unpkg.com/three@0.164.1/examples/jsm/loaders/GLTFLoader.js";
+import * as THREE from "https://esm.sh/three@0.164.1";
+import { OrbitControls } from "https://esm.sh/three@0.164.1/examples/jsm/controls/OrbitControls";
+import { GLTFLoader } from "https://esm.sh/three@0.164.1/examples/jsm/loaders/GLTFLoader";
 
 const repValue = document.getElementById("repValue");
 const missionValue = document.getElementById("missionValue");
