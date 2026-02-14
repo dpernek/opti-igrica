@@ -48,6 +48,18 @@
           regs.forEach((reg) => reg.unregister());
         });
       }
+
+      window.__jan3dReady = false;
+      setTimeout(() => {
+        if (window.__jan3dReady) return;
+        const loader = document.getElementById("loader");
+        const overlay = document.getElementById("eventOverlay");
+        if (loader) loader.classList.add("hidden");
+        if (overlay) {
+          overlay.textContent =
+            "3D engine ili modeli nisu dostupni. Osvježi stranicu (Cmd+Shift+R) i provjeri vezu.";
+        }
+      }, 8000);
     </script>
     <script type="module" src="game.js?v=20260214-3d-1"></script>
   </body>

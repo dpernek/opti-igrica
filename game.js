@@ -22,6 +22,7 @@ const state = {
   message: "Učitavanje 3D grada...",
   messageUntil: 0,
 };
+window.__jan3dReady = true;
 
 const issuePool = [
   "Kvar semafora blokira promet",
@@ -319,9 +320,31 @@ const botFollow = [
 
 const loader = new GLTFLoader();
 
-function loadModel(url) {
+function loadModel(url, timeoutMs = 4500) {
   return new Promise((resolve, reject) => {
-    loader.load(url, resolve, undefined, reject);
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Timeout učitavanja modela: ${url}`));
+    }, timeoutMs);
+
+    loader.load(
+      url,
+      (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve(result);
+      },
+      undefined,
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(error);
+      }
+    );
   });
 }
 
@@ -540,6 +563,8 @@ function updatePlayer(dt) {
   controls.target.lerp(jan.root.position.clone().add(new THREE.Vector3(0, 10, 0)), 0.11);
 }
 
+let gameStarted = false;
+
 function animate() {
   const dt = Math.min(0.033, clock.getDelta());
   const time = performance.now();
@@ -558,16 +583,28 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
+function startGame() {
+  if (gameStarted) return;
+  gameStarted = true;
+  loaderEl.classList.add("hidden");
+  animate();
+}
+
 async function init() {
   try {
     await loadCharacterModels();
   } catch (_err) {
     pushMessage("Neki 3D modeli nisu učitani, igra radi s fallback modelima.", 2800);
   } finally {
-    loaderEl.classList.add("hidden");
     pushMessage("JAN i Autoboti ulaze u patrolu. Kreni s misijama!", 2600);
-    animate();
+    startGame();
   }
 }
+
+setTimeout(() => {
+  if (gameStarted) return;
+  pushMessage("Modeli kasne, pokrećem igru s fallback 3D prikazom.", 3200);
+  startGame();
+}, 6500);
 
 init();
