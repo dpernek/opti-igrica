@@ -14,7 +14,8 @@ Web 3D igra na hrvatskom: JAN vozi kroz veliki grad s Autobotima i rješava prob
 - `W`: gas
 - `S`: kočnica / rikverc
 - `A D`: skretanje
-- `Space`: ručna kočnica
+- `Shift`: ručna kočnica
+- `Space`: transformacija svih (JAN + oba Autobota) robot <-> auto
 - `E`: rješavanje problema građana
 
 ## Modeli (free)

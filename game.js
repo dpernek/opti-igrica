@@ -11,280 +11,365 @@ const canvas = document.getElementById("gameCanvas");
 
 window.__jan3dReady = true;
 
-const WORLD_SIZE = 1800;
-const ROAD_GAP = 180;
-const ROAD_WIDTH = 46;
-const keys = new Set();
+const WORLD = 2200;
+const ROAD_STEP = 210;
+const ROAD_WIDTH = 54;
+const HALF = WORLD / 2;
 const clock = new THREE.Clock();
+const keys = new Set();
 
 const state = {
   reputation: 0,
   missions: 0,
-  message: "Priprema 3D grada i vozila...",
+  message: "Priprema ultra 3D grada...",
   messageUntil: 0,
+  transformMode: "car",
 };
 
 const issues = [
-  "Kvar semafora na glavnoj aveniji",
-  "Pokvaren gradski autobus na križanju",
-  "Nestanak rasvjete u stambenom bloku",
-  "Hitna dostava lijekova građaninu",
-  "Siguran koridor za djecu iz škole",
-  "Kritična gužva kod bolnice",
+  "Masovni zastoj kod bolnice",
+  "Kvar gradske rasvjete u centru",
+  "Kritičan kvar semafora",
+  "Hitna dostava lijekova",
+  "Siguran prolaz školske djece",
+  "Kvar autobusa na glavnoj ruti",
+  "Opasnost za pješake na aveniji",
 ];
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.08;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#87a9c8");
-scene.fog = new THREE.Fog("#9db6cd", 280, 1500);
+scene.fog = new THREE.Fog("#9db7d0", 250, 1850);
 
 const camera = new THREE.PerspectiveCamera(64, canvas.clientWidth / canvas.clientHeight, 0.1, 5000);
-camera.position.set(0, 18, -28);
+camera.position.set(0, 16, -30);
 
-const hemi = new THREE.HemisphereLight("#d8eeff", "#4e6d87", 0.72);
+const hemi = new THREE.HemisphereLight("#d8ecff", "#4f667a", 0.75);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight("#ffe9bd", 1.3);
-sun.position.set(-140, 220, 110);
+const sun = new THREE.DirectionalLight("#ffe9c8", 1.35);
+sun.position.set(-180, 240, 80);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -300;
-sun.shadow.camera.right = 300;
-sun.shadow.camera.top = 300;
-sun.shadow.camera.bottom = -300;
+sun.shadow.camera.left = -420;
+sun.shadow.camera.right = 420;
+sun.shadow.camera.top = 420;
+sun.shadow.camera.bottom = -420;
 sun.shadow.camera.near = 10;
-sun.shadow.camera.far = 800;
+sun.shadow.camera.far = 1050;
 scene.add(sun);
 
-const ambientBounce = new THREE.PointLight("#8bc7ff", 0.5, 600, 2);
-ambientBounce.position.set(0, 55, 0);
-scene.add(ambientBounce);
+const bounce = new THREE.PointLight("#81c4ff", 0.55, 700, 2);
+bounce.position.set(0, 65, 0);
+scene.add(bounce);
+
+function makeSky() {
+  const geo = new THREE.SphereGeometry(3500, 32, 16);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      top: { value: new THREE.Color("#71a8d8") },
+      bottom: { value: new THREE.Color("#d6eefc") },
+    },
+    vertexShader: `
+      varying vec3 vPos;
+      void main() {
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vPos;
+      uniform vec3 top;
+      uniform vec3 bottom;
+      void main() {
+        float h = normalize(vPos).y * 0.5 + 0.5;
+        vec3 c = mix(bottom, top, smoothstep(0.0, 1.0, h));
+        gl_FragColor = vec4(c, 1.0);
+      }
+    `,
+  });
+  scene.add(new THREE.Mesh(geo, mat));
+}
+
+makeSky();
 
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE),
-  new THREE.MeshStandardMaterial({ color: "#7f9a6e", roughness: 0.92, metalness: 0.03 })
+  new THREE.PlaneGeometry(WORLD, WORLD),
+  new THREE.MeshStandardMaterial({ color: "#7d9966", roughness: 0.96, metalness: 0.01 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-function createRoad(x, z, w, d) {
+function laneMaterial() {
+  return new THREE.MeshStandardMaterial({ color: "#eadca2", roughness: 0.4, metalness: 0.02 });
+}
+
+function addRoad(x, z, w, d) {
   const road = new THREE.Mesh(
-    new THREE.BoxGeometry(w, 1, d),
-    new THREE.MeshStandardMaterial({ color: "#2b3138", roughness: 0.85, metalness: 0.08 })
+    new THREE.BoxGeometry(w, 1.2, d),
+    new THREE.MeshStandardMaterial({ color: "#252c34", roughness: 0.88, metalness: 0.05 })
   );
-  road.position.set(x, 0.5, z);
+  road.position.set(x, 0.6, z);
   road.receiveShadow = true;
   scene.add(road);
 
-  const lane = new THREE.Mesh(
-    new THREE.BoxGeometry(w * 0.98, 0.05, 1.8),
-    new THREE.MeshStandardMaterial({ color: "#d8dfad", roughness: 0.2, metalness: 0.05 })
+  const sidewalkW = w > d ? w : d;
+  const horizontal = w > d;
+  const curbA = new THREE.Mesh(
+    new THREE.BoxGeometry(horizontal ? sidewalkW : 4.5, 1.8, horizontal ? 4.5 : sidewalkW),
+    new THREE.MeshStandardMaterial({ color: "#8a929b", roughness: 0.85 })
   );
-  lane.position.set(x, 1.05, z);
-  scene.add(lane);
+  const curbB = curbA.clone();
+
+  if (horizontal) {
+    curbA.position.set(x, 0.9, z - d / 2 - 1.5);
+    curbB.position.set(x, 0.9, z + d / 2 + 1.5);
+  } else {
+    curbA.position.set(x - w / 2 - 1.5, 0.9, z);
+    curbB.position.set(x + w / 2 + 1.5, 0.9, z);
+  }
+  curbA.receiveShadow = true;
+  curbB.receiveShadow = true;
+  scene.add(curbA, curbB);
+
+  const dashMat = laneMaterial();
+  if (horizontal) {
+    for (let dx = -w / 2 + 20; dx < w / 2 - 10; dx += 24) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(8, 0.1, 1.5), dashMat);
+      dash.position.set(x + dx, 1.25, z);
+      scene.add(dash);
+    }
+  } else {
+    for (let dz = -d / 2 + 20; dz < d / 2 - 10; dz += 24) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 8), dashMat);
+      dash.position.set(x, 1.25, z + dz);
+      scene.add(dash);
+    }
+  }
 }
 
-function createCity() {
-  const span = WORLD_SIZE - 40;
+function makeStreetLight(x, z) {
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 0.45, 16, 10),
+    new THREE.MeshStandardMaterial({ color: "#626f7d", roughness: 0.7, metalness: 0.4 })
+  );
+  pole.position.set(x, 8, z);
+  pole.castShadow = true;
+  scene.add(pole);
+
+  const lamp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.9, 10, 10),
+    new THREE.MeshStandardMaterial({ color: "#f6f3c7", emissive: "#ffe6a0", emissiveIntensity: 1.2 })
+  );
+  lamp.position.set(x, 16.2, z);
+  scene.add(lamp);
+
+  const light = new THREE.PointLight("#ffd79f", 0.28, 95, 2);
+  light.position.set(x, 16, z);
+  scene.add(light);
+}
+
+function makeCity() {
+  const span = WORLD - 60;
   for (let i = -4; i <= 4; i += 1) {
-    const p = i * ROAD_GAP;
-    createRoad(0, p, span, ROAD_WIDTH);
-    createRoad(p, 0, ROAD_WIDTH, span);
+    const p = i * ROAD_STEP;
+    addRoad(0, p, span, ROAD_WIDTH);
+    addRoad(p, 0, ROAD_WIDTH, span);
   }
 
-  const buildingMat = new THREE.MeshStandardMaterial({ color: "#6f7f90", roughness: 0.78, metalness: 0.2 });
-  const windowMat = new THREE.MeshStandardMaterial({ color: "#abd9ff", emissive: "#4ca3e0", emissiveIntensity: 0.35 });
-
+  const towerMat = new THREE.MeshStandardMaterial({ color: "#798896", roughness: 0.78, metalness: 0.24 });
   for (let gx = -4; gx <= 4; gx += 1) {
     for (let gz = -4; gz <= 4; gz += 1) {
       if (gx === 0 || gz === 0) continue;
-      const x = gx * ROAD_GAP + (Math.random() - 0.5) * 30;
-      const z = gz * ROAD_GAP + (Math.random() - 0.5) * 30;
-      const w = 40 + Math.random() * 45;
-      const d = 40 + Math.random() * 45;
-      const h = 50 + Math.random() * 220;
+      const cx = gx * ROAD_STEP + (Math.random() - 0.5) * 42;
+      const cz = gz * ROAD_STEP + (Math.random() - 0.5) * 42;
+      const w = 58 + Math.random() * 65;
+      const d = 58 + Math.random() * 65;
+      const h = 90 + Math.random() * 280;
 
-      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat.clone());
-      body.material.color.offsetHSL((Math.random() - 0.5) * 0.06, 0, (Math.random() - 0.5) * 0.1);
-      body.position.set(x, h / 2 + 1, z);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), towerMat.clone());
+      body.material.color.offsetHSL((Math.random() - 0.5) * 0.07, 0.02, (Math.random() - 0.5) * 0.07);
+      body.position.set(cx, h / 2 + 1, cz);
       body.castShadow = true;
       body.receiveShadow = true;
       scene.add(body);
 
-      const lightBand = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, 3.5, d * 0.85), windowMat.clone());
-      lightBand.position.set(0, h * (0.35 + Math.random() * 0.2), 0);
-      body.add(lightBand);
+      const band = new THREE.Mesh(
+        new THREE.BoxGeometry(w * 0.92, 4.4, d * 0.92),
+        new THREE.MeshStandardMaterial({ color: "#b2dbff", emissive: "#3e93d0", emissiveIntensity: 0.38 })
+      );
+      band.position.set(0, h * (0.32 + Math.random() * 0.34), 0);
+      body.add(band);
+
+      if (Math.random() > 0.45) {
+        const top = new THREE.Mesh(
+          new THREE.CylinderGeometry(w * 0.16, w * 0.22, 16, 10),
+          new THREE.MeshStandardMaterial({ color: "#94a0ac", roughness: 0.7, metalness: 0.3 })
+        );
+        top.position.set(0, h / 2 + 8, 0);
+        top.castShadow = true;
+        body.add(top);
+      }
     }
   }
 
-  const treeMat = new THREE.MeshStandardMaterial({ color: "#4f7e40", roughness: 0.9 });
-  const trunkMat = new THREE.MeshStandardMaterial({ color: "#5f4833", roughness: 0.95 });
+  for (let i = 0; i < 140; i += 1) {
+    const x = (Math.random() - 0.5) * (WORLD - 120);
+    const z = (Math.random() - 0.5) * (WORLD - 120);
+    if (Math.abs((x % ROAD_STEP)) < ROAD_WIDTH || Math.abs((z % ROAD_STEP)) < ROAD_WIDTH) continue;
 
-  for (let i = 0; i < 120; i += 1) {
-    const x = (Math.random() - 0.5) * (WORLD_SIZE - 120);
-    const z = (Math.random() - 0.5) * (WORLD_SIZE - 120);
-    if (Math.abs((x % ROAD_GAP)) < ROAD_WIDTH || Math.abs((z % ROAD_GAP)) < ROAD_WIDTH) continue;
-
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 8, 8), trunkMat);
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.15, 1.3, 8, 8),
+      new THREE.MeshStandardMaterial({ color: "#6a4a2f", roughness: 0.92 })
+    );
     trunk.position.set(x, 4, z);
     trunk.castShadow = true;
     scene.add(trunk);
 
-    const crown = new THREE.Mesh(new THREE.SphereGeometry(4 + Math.random() * 2, 12, 12), treeMat);
-    crown.position.set(x, 10, z);
+    const crown = new THREE.Mesh(
+      new THREE.SphereGeometry(4.4 + Math.random() * 2.4, 12, 12),
+      new THREE.MeshStandardMaterial({ color: "#4f7c3d", roughness: 0.88 })
+    );
+    crown.position.set(x, 10.8, z);
     crown.castShadow = true;
     scene.add(crown);
   }
-}
 
-createCity();
-
-function buildFallbackCar() {
-  const group = new THREE.Group();
-
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(5.6, 1.6, 11),
-    new THREE.MeshStandardMaterial({ color: "#1f90e5", roughness: 0.35, metalness: 0.72 })
-  );
-  body.position.y = 2.4;
-  body.castShadow = true;
-  group.add(body);
-
-  const roof = new THREE.Mesh(
-    new THREE.BoxGeometry(4.3, 1.4, 5.2),
-    new THREE.MeshStandardMaterial({ color: "#d4e7f4", roughness: 0.15, metalness: 0.35 })
-  );
-  roof.position.set(0, 3.5, -0.5);
-  roof.castShadow = true;
-  group.add(roof);
-
-  const wheelGeo = new THREE.CylinderGeometry(1.1, 1.1, 0.8, 16);
-  const wheelMat = new THREE.MeshStandardMaterial({ color: "#1f2228", roughness: 0.9, metalness: 0.1 });
-  [[-2.5, 1.1, -3.8], [2.5, 1.1, -3.8], [-2.5, 1.1, 3.8], [2.5, 1.1, 3.8]].forEach(([x, y, z]) => {
-    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(x, y, z);
-    wheel.castShadow = true;
-    group.add(wheel);
-  });
-
-  return group;
-}
-
-const vehicle = {
-  root: new THREE.Group(),
-  speed: 0,
-  heading: 0,
-  maxForward: 105,
-  maxReverse: -40,
-  acceleration: 58,
-  brake: 95,
-  drag: 28,
-  steerRate: 1.85,
-};
-vehicle.root.position.set(0, 0, 0);
-scene.add(vehicle.root);
-
-const fallbackCar = buildFallbackCar();
-vehicle.root.add(fallbackCar);
-
-const janTag = makeSpriteLabel("JAN");
-janTag.position.set(0, 8, 0);
-vehicle.root.add(janTag);
-
-const autobots = [makeAutobot("#f59e48"), makeAutobot("#7ce88d")];
-autobots.forEach((bot) => scene.add(bot));
-
-const traffic = [];
-function makeTraffic() {
-  for (let i = 0; i < 42; i += 1) {
-    const car = new THREE.Mesh(
-      new THREE.BoxGeometry(4.2, 1.5, 9.2),
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color().setHSL((i * 0.11) % 1, 0.72, 0.53),
-        roughness: 0.4,
-        metalness: 0.4,
-      })
-    );
-    car.castShadow = true;
-    car.receiveShadow = true;
-
-    const lane = (-4 + (i % 9)) * ROAD_GAP;
-    const horizontal = i % 2 === 0;
-
-    if (horizontal) {
-      car.position.set(-WORLD_SIZE / 2 + (i * 57) % WORLD_SIZE, 1.1, lane);
-      car.rotation.y = Math.PI / 2;
-    } else {
-      car.position.set(lane, 1.1, -WORLD_SIZE / 2 + (i * 83) % WORLD_SIZE);
-      car.rotation.y = 0;
+  for (let i = -4; i <= 4; i += 1) {
+    for (let j = -4; j <= 4; j += 1) {
+      if (i === 0 || j === 0) continue;
+      if ((i + j) % 2 === 0) makeStreetLight(i * ROAD_STEP + 56, j * ROAD_STEP + 56);
     }
-
-    scene.add(car);
-    traffic.push({ mesh: car, horizontal, speed: 26 + (i % 7) * 4, dir: i % 3 === 0 ? -1 : 1 });
   }
 }
-makeTraffic();
 
-function makeAutobot(color) {
-  const g = new THREE.Group();
+makeCity();
 
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(3.2, 6.8, 2.8),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.85 })
-  );
-  body.position.y = 3.8;
-  body.castShadow = true;
-  g.add(body);
-
-  const visor = new THREE.Mesh(
-    new THREE.BoxGeometry(2.2, 1.1, 2.95),
-    new THREE.MeshStandardMaterial({ color: "#162f48", emissive: "#2d9af0", emissiveIntensity: 0.6 })
-  );
-  visor.position.set(0, 4.6, 0);
-  g.add(visor);
-
-  return g;
-}
-
-function makeSpriteLabel(text) {
+function makeLabel(text) {
   const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 80;
+  c.width = 320;
+  c.height = 90;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#07233a";
+  ctx.fillStyle = "#06263d";
   ctx.fillRect(0, 0, c.width, c.height);
-  ctx.strokeStyle = "#5ec9ff";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, c.width - 4, c.height - 4);
+  ctx.strokeStyle = "#59cbff";
+  ctx.lineWidth = 5;
+  ctx.strokeRect(3, 3, c.width - 6, c.height - 6);
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = "700 44px Rajdhani";
+  ctx.font = "700 48px Rajdhani";
   ctx.fillText(text, c.width / 2, c.height / 2);
-
   const tex = new THREE.CanvasTexture(c);
-  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-  spr.scale.set(14, 4.2, 1);
-  return spr;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sprite.scale.set(14, 3.9, 1);
+  return sprite;
 }
 
-function modelLoader(url, timeoutMs = 4500) {
-  const loader = new GLTFLoader();
+function makeFallbackCar(color = "#2e9ef2") {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(6.3, 1.8, 12.4),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.75 })
+  );
+  body.position.y = 2.6;
+  body.castShadow = true;
+  g.add(body);
+
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(4.9, 1.6, 6.2),
+    new THREE.MeshStandardMaterial({ color: "#d6e4ef", roughness: 0.2, metalness: 0.4 })
+  );
+  roof.position.set(0, 3.8, -0.4);
+  roof.castShadow = true;
+  g.add(roof);
+
+  const wheelGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.9, 16);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: "#22252c", roughness: 0.9 });
+  [[-2.8, 1.2, -4.2], [2.8, 1.2, -4.2], [-2.8, 1.2, 4.2], [2.8, 1.2, 4.2]].forEach(([x, y, z]) => {
+    const w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.rotation.z = Math.PI / 2;
+    w.position.set(x, y, z);
+    w.castShadow = true;
+    g.add(w);
+  });
+  return g;
+}
+
+function makeFallbackRobot(color = "#32c6ff") {
+  const g = new THREE.Group();
+  const chest = new THREE.Mesh(
+    new THREE.BoxGeometry(3.5, 5.4, 2.3),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.84 })
+  );
+  chest.position.y = 4.5;
+  chest.castShadow = true;
+  g.add(chest);
+
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 1.8, 1.8),
+    new THREE.MeshStandardMaterial({ color: "#f1f7ff", roughness: 0.3, metalness: 0.55 })
+  );
+  head.position.set(0, 8.2, 0);
+  head.castShadow = true;
+  g.add(head);
+
+  const legs = new THREE.Mesh(
+    new THREE.BoxGeometry(2.1, 3.6, 1.8),
+    new THREE.MeshStandardMaterial({ color: "#19415e", roughness: 0.4, metalness: 0.75 })
+  );
+  legs.position.set(0, 1.8, 0);
+  legs.castShadow = true;
+  g.add(legs);
+  return g;
+}
+
+const player = {
+  root: new THREE.Group(),
+  carMesh: makeFallbackCar("#248ee0"),
+  robotMesh: makeFallbackRobot("#3bcfff"),
+  mode: "car",
+  speed: 0,
+  heading: 0,
+  maxForward: 120,
+  maxReverse: -45,
+  acceleration: 64,
+  brake: 105,
+  drag: 31,
+  steer: 2.05,
+  walkSpeed: 30,
+  transformCooldown: 0,
+};
+player.root.position.set(0, 0, 0);
+player.root.add(player.carMesh, player.robotMesh);
+player.robotMesh.visible = false;
+scene.add(player.root);
+
+const janLabel = makeLabel("JAN");
+janLabel.position.set(0, 10.8, 0);
+player.root.add(janLabel);
+
+const loader = new GLTFLoader();
+let carModelTemplate = null;
+let robotModelTemplate = null;
+let citizenTemplate = null;
+
+function loadModel(url, timeoutMs = 4500) {
   return new Promise((resolve, reject) => {
     let done = false;
-    const t = setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (done) return;
       done = true;
-      reject(new Error(`Model timeout: ${url}`));
+      reject(new Error(`Timeout: ${url}`));
     }, timeoutMs);
 
     loader.load(
@@ -292,84 +377,105 @@ function modelLoader(url, timeoutMs = 4500) {
       (gltf) => {
         if (done) return;
         done = true;
-        clearTimeout(t);
+        clearTimeout(timeout);
         resolve(gltf);
       },
       undefined,
       (err) => {
         if (done) return;
         done = true;
-        clearTimeout(t);
+        clearTimeout(timeout);
         reject(err);
       }
     );
   });
 }
 
-const citizens = [];
-let citizenTemplate = null;
-let autobotTemplate = null;
-
-function randomIssue() {
-  return issues[Math.floor(Math.random() * issues.length)];
+function tuneModel(obj) {
+  obj.traverse((c) => {
+    if (c.isMesh) {
+      c.castShadow = true;
+      c.receiveShadow = true;
+      if (c.material?.map) c.material.map.anisotropy = 8;
+    }
+  });
 }
 
 function randomStreetPoint() {
-  const lane = (-4 + Math.floor(Math.random() * 9)) * ROAD_GAP;
-  const along = -WORLD_SIZE / 2 + Math.random() * WORLD_SIZE;
-  if (Math.random() > 0.5) {
-    return new THREE.Vector3(lane + (Math.random() - 0.5) * 14, 0, along);
-  }
-  return new THREE.Vector3(along, 0, lane + (Math.random() - 0.5) * 14);
+  const lane = (-4 + Math.floor(Math.random() * 9)) * ROAD_STEP;
+  const along = -HALF + Math.random() * WORLD;
+  if (Math.random() > 0.5) return new THREE.Vector3(lane + (Math.random() - 0.5) * 18, 0, along);
+  return new THREE.Vector3(along, 0, lane + (Math.random() - 0.5) * 18);
 }
 
-function buildFallbackCitizen() {
+function makeCitizenFallback() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(1.1, 2.8, 8, 14),
-    new THREE.MeshStandardMaterial({ color: "#f2d0ae", roughness: 0.58 })
+    new THREE.CapsuleGeometry(1.25, 3.2, 8, 14),
+    new THREE.MeshStandardMaterial({ color: "#efccab", roughness: 0.65 })
   );
-  body.position.y = 2.8;
+  body.position.y = 3;
   body.castShadow = true;
   g.add(body);
   return g;
 }
 
+const citizens = [];
+
 function spawnCitizen() {
-  const root = citizenTemplate ? clone(citizenTemplate) : buildFallbackCitizen();
-  root.traverse((obj) => {
-    if (obj.isMesh) {
-      obj.castShadow = true;
-      obj.receiveShadow = true;
-    }
-  });
+  const root = citizenTemplate ? clone(citizenTemplate) : makeCitizenFallback();
+  if (citizenTemplate) root.scale.setScalar(2.3);
+  tuneModel(root);
 
   const marker = new THREE.Mesh(
-    new THREE.TorusGeometry(4.6, 0.45, 12, 40),
-    new THREE.MeshBasicMaterial({ color: "#f45454", transparent: true, opacity: 0.9 })
+    new THREE.TorusGeometry(5.2, 0.52, 14, 48),
+    new THREE.MeshBasicMaterial({ color: "#ff4f4f", transparent: true, opacity: 0.92 })
   );
   marker.rotation.x = Math.PI / 2;
-  marker.position.y = 0.7;
+  marker.position.y = 0.75;
   root.add(marker);
 
-  const p = randomStreetPoint();
-  root.position.copy(p);
+  root.position.copy(randomStreetPoint());
   scene.add(root);
 
-  citizens.push({ root, marker, issue: randomIssue(), solved: false, pulse: Math.random() * Math.PI * 2 });
+  citizens.push({
+    root,
+    marker,
+    issue: issues[Math.floor(Math.random() * issues.length)],
+    solved: false,
+    pulse: Math.random() * Math.PI * 2,
+  });
 }
 
-function message(text, duration = 2400) {
+function makeBot(colorCar, colorRobot) {
+  const root = new THREE.Group();
+  const car = makeFallbackCar(colorCar);
+  const robot = makeFallbackRobot(colorRobot);
+  robot.visible = false;
+  root.add(car, robot);
+  scene.add(root);
+  return {
+    root,
+    car,
+    robot,
+    speed: 0,
+    heading: 0,
+  };
+}
+
+const bots = [makeBot("#f59f44", "#f1a640"), makeBot("#74e48d", "#66d984")];
+
+function msg(text, duration = 2300) {
   state.message = text;
   state.messageUntil = performance.now() + duration;
 }
 
-function getNearestCitizen() {
+function nearestCitizen() {
   let nearest = null;
   let dist = Infinity;
   for (const c of citizens) {
     if (c.solved) continue;
-    const d = c.root.position.distanceTo(vehicle.root.position);
+    const d = c.root.position.distanceTo(player.root.position);
     if (d < dist) {
       dist = d;
       nearest = c;
@@ -378,10 +484,10 @@ function getNearestCitizen() {
   return { nearest, dist };
 }
 
-function solveCitizenIssue() {
-  const { nearest, dist } = getNearestCitizen();
-  if (!nearest || dist > 12) {
-    message("Priđi građaninu autom i pritisni E.", 1700);
+function solveIssue() {
+  const { nearest, dist } = nearestCitizen();
+  if (!nearest || dist > (player.mode === "car" ? 13 : 9)) {
+    msg("Priđi bliže građaninu pa pritisni E.", 1700);
     return;
   }
 
@@ -389,132 +495,214 @@ function solveCitizenIssue() {
   nearest.root.visible = false;
   state.reputation += 12;
   state.missions += 1;
-  message(`Riješeno: ${nearest.issue}`, 2300);
+  msg(`Riješeno: ${nearest.issue}`, 2400);
 
   setTimeout(() => {
     nearest.root.position.copy(randomStreetPoint());
-    nearest.issue = randomIssue();
+    nearest.issue = issues[Math.floor(Math.random() * issues.length)];
     nearest.solved = false;
     nearest.root.visible = true;
   }, 2200);
 }
 
+function toggleTransform() {
+  if (player.transformCooldown > 0) return;
+  player.transformCooldown = 0.7;
+
+  const next = player.mode === "car" ? "robot" : "car";
+  player.mode = next;
+  state.transformMode = next;
+
+  player.carMesh.visible = next === "car";
+  player.robotMesh.visible = next === "robot";
+
+  bots.forEach((bot) => {
+    bot.car.visible = next === "car";
+    bot.robot.visible = next === "robot";
+  });
+
+  if (next === "robot") {
+    player.speed = THREE.MathUtils.clamp(player.speed * 0.35, -8, 18);
+    msg("TRANSFORM: Robot mode", 1500);
+  } else {
+    msg("TRANSFORM: Auto mode", 1500);
+  }
+}
+
+const traffic = [];
+function makeTraffic() {
+  for (let i = 0; i < 54; i += 1) {
+    const mesh = makeFallbackCar(`hsl(${(i * 23) % 360} 70% 55%)`);
+    mesh.scale.setScalar(0.72);
+    const horizontal = i % 2 === 0;
+    const lane = (-4 + (i % 9)) * ROAD_STEP;
+    if (horizontal) mesh.position.set(-HALF + (i * 63) % WORLD, 0, lane);
+    else mesh.position.set(lane, 0, -HALF + (i * 87) % WORLD);
+    mesh.rotation.y = horizontal ? Math.PI / 2 : 0;
+    scene.add(mesh);
+    traffic.push({ mesh, horizontal, speed: 32 + (i % 8) * 3.5, dir: i % 3 === 0 ? -1 : 1 });
+  }
+}
+makeTraffic();
+
 function updateTraffic(dt) {
-  for (const car of traffic) {
-    const delta = car.speed * dt * car.dir;
-    if (car.horizontal) {
-      car.mesh.position.x += delta;
-      if (car.mesh.position.x > WORLD_SIZE / 2) car.mesh.position.x = -WORLD_SIZE / 2;
-      if (car.mesh.position.x < -WORLD_SIZE / 2) car.mesh.position.x = WORLD_SIZE / 2;
-      car.mesh.rotation.y = car.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+  for (const t of traffic) {
+    const delta = t.speed * dt * t.dir;
+    if (t.horizontal) {
+      t.mesh.position.x += delta;
+      if (t.mesh.position.x > HALF) t.mesh.position.x = -HALF;
+      if (t.mesh.position.x < -HALF) t.mesh.position.x = HALF;
+      t.mesh.rotation.y = t.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
     } else {
-      car.mesh.position.z += delta;
-      if (car.mesh.position.z > WORLD_SIZE / 2) car.mesh.position.z = -WORLD_SIZE / 2;
-      if (car.mesh.position.z < -WORLD_SIZE / 2) car.mesh.position.z = WORLD_SIZE / 2;
-      car.mesh.rotation.y = car.dir > 0 ? 0 : Math.PI;
+      t.mesh.position.z += delta;
+      if (t.mesh.position.z > HALF) t.mesh.position.z = -HALF;
+      if (t.mesh.position.z < -HALF) t.mesh.position.z = HALF;
+      t.mesh.rotation.y = t.dir > 0 ? 0 : Math.PI;
     }
   }
 }
 
-function updateVehicle(dt) {
+function updatePlayerCar(dt) {
   const throttle = Number(keys.has("w") || keys.has("arrowup"));
   const brake = Number(keys.has("s") || keys.has("arrowdown"));
-  const steerLeft = Number(keys.has("a") || keys.has("arrowleft"));
-  const steerRight = Number(keys.has("d") || keys.has("arrowright"));
-  const handbrake = keys.has(" ");
+  const left = Number(keys.has("a") || keys.has("arrowleft"));
+  const right = Number(keys.has("d") || keys.has("arrowright"));
+  const handbrake = keys.has("shift");
 
-  if (throttle) vehicle.speed += vehicle.acceleration * dt;
-  if (brake) vehicle.speed -= vehicle.brake * dt;
+  if (throttle) player.speed += player.acceleration * dt;
+  if (brake) player.speed -= player.brake * dt;
 
   if (!throttle && !brake) {
-    if (vehicle.speed > 0) vehicle.speed = Math.max(0, vehicle.speed - vehicle.drag * dt);
-    if (vehicle.speed < 0) vehicle.speed = Math.min(0, vehicle.speed + vehicle.drag * dt);
+    if (player.speed > 0) player.speed = Math.max(0, player.speed - player.drag * dt);
+    if (player.speed < 0) player.speed = Math.min(0, player.speed + player.drag * dt);
   }
 
-  if (handbrake) {
-    vehicle.speed *= 0.94;
-  }
+  if (handbrake) player.speed *= 0.965;
 
-  vehicle.speed = THREE.MathUtils.clamp(vehicle.speed, vehicle.maxReverse, vehicle.maxForward);
+  player.speed = THREE.MathUtils.clamp(player.speed, player.maxReverse, player.maxForward);
 
-  const steerInput = steerRight - steerLeft;
+  const steerInput = right - left;
   if (steerInput !== 0) {
-    const steerPower = (0.25 + Math.min(Math.abs(vehicle.speed) / vehicle.maxForward, 1) * 0.75) * vehicle.steerRate;
-    vehicle.heading -= steerInput * steerPower * dt * Math.sign(vehicle.speed || 1);
+    const steerStrength = (0.2 + Math.min(Math.abs(player.speed) / player.maxForward, 1) * 0.8) * player.steer;
+    const drift = handbrake ? 1.55 : 1;
+    player.heading -= steerInput * steerStrength * dt * Math.sign(player.speed || 1) * drift;
   }
 
-  vehicle.root.rotation.y = vehicle.heading;
-
-  const dir = new THREE.Vector3(Math.sin(vehicle.heading), 0, Math.cos(vehicle.heading));
-  vehicle.root.position.addScaledVector(dir, vehicle.speed * dt);
-
-  vehicle.root.position.x = THREE.MathUtils.clamp(vehicle.root.position.x, -WORLD_SIZE / 2 + 20, WORLD_SIZE / 2 - 20);
-  vehicle.root.position.z = THREE.MathUtils.clamp(vehicle.root.position.z, -WORLD_SIZE / 2 + 20, WORLD_SIZE / 2 - 20);
+  player.root.rotation.y = player.heading;
+  const dir = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading));
+  player.root.position.addScaledVector(dir, player.speed * dt);
 }
 
-function updateBots(time) {
-  const anchor = vehicle.root.position;
-  autobots.forEach((bot, i) => {
-    const phase = i === 0 ? 0 : Math.PI;
-    const radius = 10;
-    const offset = new THREE.Vector3(
-      Math.cos(time * 0.002 + phase) * radius,
-      0,
-      Math.sin(time * 0.002 + phase) * radius
-    );
-    const target = anchor.clone().add(offset);
-    target.y = 0;
-    bot.position.lerp(target, 0.08);
-    bot.lookAt(anchor.x, 2.4, anchor.z);
+function updatePlayerRobot(dt) {
+  const fwd = Number(keys.has("w") || keys.has("arrowup")) - Number(keys.has("s") || keys.has("arrowdown"));
+  const side = Number(keys.has("d") || keys.has("arrowright")) - Number(keys.has("a") || keys.has("arrowleft"));
+
+  const move = new THREE.Vector3(side, 0, fwd);
+  if (move.lengthSq() === 0) {
+    player.speed *= 0.88;
+    return;
+  }
+
+  move.normalize();
+  const targetHeading = Math.atan2(move.x, move.z);
+  player.heading = THREE.MathUtils.lerp(player.heading, targetHeading, 0.16);
+  player.root.rotation.y = player.heading;
+
+  const walk = player.walkSpeed * dt;
+  player.root.position.x += move.x * walk;
+  player.root.position.z += move.z * walk;
+  player.speed = walk * 60;
+}
+
+function updatePlayer(dt) {
+  if (player.transformCooldown > 0) player.transformCooldown -= dt;
+
+  if (player.mode === "car") updatePlayerCar(dt);
+  else updatePlayerRobot(dt);
+
+  player.root.position.x = THREE.MathUtils.clamp(player.root.position.x, -HALF + 24, HALF - 24);
+  player.root.position.z = THREE.MathUtils.clamp(player.root.position.z, -HALF + 24, HALF - 24);
+}
+
+function updateBots(dt, time) {
+  bots.forEach((bot, i) => {
+    const angleOffset = i === 0 ? -1.2 : 1.2;
+    const forwardOffset = player.mode === "car" ? -16 : -9;
+    const lateral = player.mode === "car" ? 8 : 6;
+
+    const behind = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading)).multiplyScalar(forwardOffset);
+    const side = new THREE.Vector3(Math.cos(player.heading), 0, -Math.sin(player.heading)).multiplyScalar(angleOffset * lateral);
+    const orbit = new THREE.Vector3(Math.cos(time * 0.0015 + i * Math.PI) * 2.5, 0, Math.sin(time * 0.0015 + i * Math.PI) * 2.5);
+
+    const target = player.root.position.clone().add(behind).add(side).add(orbit);
+    const toTarget = target.clone().sub(bot.root.position);
+    const dist = toTarget.length();
+
+    if (dist > 0.01) {
+      toTarget.normalize();
+      const max = player.mode === "car" ? 70 : 35;
+      bot.speed = THREE.MathUtils.lerp(bot.speed, Math.min(max, dist * 4.2), 0.08);
+      bot.root.position.addScaledVector(toTarget, bot.speed * dt);
+      bot.heading = Math.atan2(toTarget.x, toTarget.z);
+      bot.root.rotation.y = bot.heading;
+    }
+
+    bot.root.position.x = THREE.MathUtils.clamp(bot.root.position.x, -HALF + 18, HALF - 18);
+    bot.root.position.z = THREE.MathUtils.clamp(bot.root.position.z, -HALF + 18, HALF - 18);
   });
 }
 
-const camTarget = new THREE.Vector3();
-const camPos = new THREE.Vector3();
-
-function updateCamera() {
-  const heading = vehicle.heading;
-  const back = new THREE.Vector3(-Math.sin(heading), 0, -Math.cos(heading));
-  const up = new THREE.Vector3(0, 13, 0);
-
-  camTarget.copy(vehicle.root.position).add(new THREE.Vector3(0, 4, 0));
-  camPos.copy(vehicle.root.position).add(back.multiplyScalar(24)).add(up);
-
-  camera.position.lerp(camPos, 0.12);
-  camera.lookAt(camTarget);
+function updateCitizens(time) {
+  citizens.forEach((c) => {
+    if (c.solved) return;
+    const pulse = (Math.sin(time * 0.005 + c.pulse) + 1) * 0.5;
+    c.marker.scale.setScalar(0.92 + pulse * 0.55);
+    c.marker.material.opacity = 0.45 + pulse * 0.5;
+  });
 }
 
-function updateCitizens(time) {
-  for (const c of citizens) {
-    if (c.solved) continue;
-    const pulse = (Math.sin(time * 0.005 + c.pulse) + 1) * 0.5;
-    c.marker.scale.setScalar(0.9 + pulse * 0.5);
-    c.marker.material.opacity = 0.45 + pulse * 0.5;
+const camPos = new THREE.Vector3();
+const camLook = new THREE.Vector3();
+function updateCamera() {
+  const dir = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading));
+  const side = new THREE.Vector3(Math.cos(player.heading), 0, -Math.sin(player.heading));
+
+  if (player.mode === "car") {
+    camPos.copy(player.root.position).addScaledVector(dir, -28).addScaledVector(side, 2.5).add(new THREE.Vector3(0, 13, 0));
+    camLook.copy(player.root.position).addScaledVector(dir, 12).add(new THREE.Vector3(0, 4.5, 0));
+  } else {
+    camPos.copy(player.root.position).addScaledVector(dir, -16).addScaledVector(side, 1.5).add(new THREE.Vector3(0, 16, 0));
+    camLook.copy(player.root.position).addScaledVector(dir, 9).add(new THREE.Vector3(0, 7.5, 0));
   }
+
+  camera.position.lerp(camPos, 0.12);
+  camera.lookAt(camLook);
 }
 
 function updateUI(time) {
   repValue.textContent = String(state.reputation);
   missionValue.textContent = String(state.missions);
 
-  const { nearest } = getNearestCitizen();
+  const { nearest } = nearestCitizen();
   activeIssue.textContent = nearest ? nearest.issue : "Nema aktivnih problema";
 
   if (time > state.messageUntil) {
-    state.message = nearest
-      ? `Vozi do građanina: ${nearest.issue}`
-      : "Grad je siguran. Nastavi patrolu.";
+    state.message = nearest ? `Cilj: ${nearest.issue}` : "Grad je stabilan, nastavi patrolu.";
   }
 
-  eventOverlay.textContent = `${state.message} | Brzina: ${Math.max(0, Math.round(vehicle.speed))} km/h`;
+  const speed = Math.max(0, Math.round(Math.abs(player.speed)));
+  eventOverlay.textContent = `${state.message} | MODE: ${state.transformMode.toUpperCase()} | ${speed} km/h`;
 }
 
 window.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   keys.add(key);
-  if (key === "e") solveCitizenIssue();
+  if (key === "e") solveIssue();
+  if (key === " ") {
+    e.preventDefault();
+    toggleTransform();
+  }
 });
-
 window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 
 window.addEventListener("resize", () => {
@@ -528,7 +716,7 @@ function startGame() {
   if (started) return;
   started = true;
   loaderEl.classList.add("hidden");
-  message("JAN ulazi u 3D patrolnu vožnju. Rješavaj gradske probleme!", 2600);
+  msg("JAN i Autoboti spremni. SPACE za transformaciju svih.", 2800);
   requestAnimationFrame(loop);
 }
 
@@ -536,9 +724,9 @@ function loop() {
   const dt = Math.min(0.033, clock.getDelta());
   const time = performance.now();
 
-  updateVehicle(dt);
+  updatePlayer(dt);
+  updateBots(dt, time);
   updateTraffic(dt);
-  updateBots(time);
   updateCitizens(time);
   updateCamera();
   updateUI(time);
@@ -547,76 +735,92 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-async function loadModels() {
-  const [carRes, citizenRes, autobotRes] = await Promise.allSettled([
-    modelLoader("https://threejs.org/examples/models/gltf/ferrari.glb"),
-    modelLoader("https://threejs.org/examples/models/gltf/Soldier.glb"),
-    modelLoader("https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb"),
+async function loadVisualModels() {
+  const [carRes, robotRes, citizenRes] = await Promise.allSettled([
+    loadModel("https://threejs.org/examples/models/gltf/ferrari.glb"),
+    loadModel("https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb"),
+    loadModel("https://threejs.org/examples/models/gltf/Soldier.glb"),
   ]);
 
   if (carRes.status === "fulfilled") {
-    fallbackCar.visible = false;
-    const car = carRes.value.scene;
-    car.scale.set(0.028, 0.028, 0.028);
-    car.rotation.y = Math.PI;
-    car.position.y = 0.9;
-    car.traverse((obj) => {
-      if (obj.isMesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-      }
+    carModelTemplate = carRes.value.scene;
+    tuneModel(carModelTemplate);
+
+    player.carMesh.visible = false;
+    const pCar = clone(carModelTemplate);
+    pCar.scale.set(0.03, 0.03, 0.03);
+    pCar.rotation.y = Math.PI;
+    pCar.position.y = 0.8;
+    tuneModel(pCar);
+    player.carMesh.add(pCar);
+
+    bots.forEach((b, i) => {
+      b.car.visible = false;
+      const c = clone(carModelTemplate);
+      c.scale.set(0.027, 0.027, 0.027);
+      c.rotation.y = Math.PI;
+      c.position.y = 0.8;
+      tuneModel(c);
+      c.traverse((obj) => {
+        if (obj.isMesh && obj.material?.color) {
+          obj.material = obj.material.clone();
+          obj.material.color.offsetHSL(i === 0 ? 0.05 : -0.2, 0.05, 0.02);
+        }
+      });
+      b.car.add(c);
     });
-    vehicle.root.add(car);
   } else {
-    message("3D model auta nije učitan, koristi se fallback vozilo.", 2200);
+    msg("Neki auto modeli nisu učitani, aktivan je fallback.", 2100);
+  }
+
+  if (robotRes.status === "fulfilled") {
+    robotModelTemplate = robotRes.value.scene;
+    tuneModel(robotModelTemplate);
+
+    player.robotMesh.visible = false;
+    const pRobot = clone(robotModelTemplate);
+    pRobot.scale.setScalar(1.9);
+    tuneModel(pRobot);
+    player.robotMesh.add(pRobot);
+
+    bots.forEach((b, i) => {
+      b.robot.visible = false;
+      const r = clone(robotModelTemplate);
+      r.scale.setScalar(1.65);
+      tuneModel(r);
+      r.traverse((obj) => {
+        if (obj.isMesh && obj.material?.color) {
+          obj.material = obj.material.clone();
+          obj.material.color.offsetHSL(i === 0 ? 0.07 : 0.28, 0.1, 0.02);
+        }
+      });
+      b.robot.add(r);
+    });
+  } else {
+    msg("Robot modeli nisu učitani, fallback je aktivan.", 2100);
   }
 
   if (citizenRes.status === "fulfilled") {
     citizenTemplate = citizenRes.value.scene;
-    citizenTemplate.scale.setScalar(2.2);
-  }
-
-  if (autobotRes.status === "fulfilled") {
-    autobotTemplate = autobotRes.value.scene;
-    autobots.forEach((bot, i) => {
-      bot.children.length = 0;
-      const m = clone(autobotTemplate);
-      m.scale.setScalar(1.7);
-      m.traverse((obj) => {
-        if (obj.isMesh && obj.material) {
-          obj.castShadow = true;
-          obj.receiveShadow = true;
-          obj.material = obj.material.clone();
-          if (obj.material.color) {
-            const hsl = { h: 0, s: 0, l: 0 };
-            obj.material.color.getHSL(hsl);
-            obj.material.color.setHSL((hsl.h + (i === 0 ? 0.06 : 0.24)) % 1, Math.min(1, hsl.s * 1.1), hsl.l);
-          }
-        }
-      });
-      bot.add(m);
-    });
+    tuneModel(citizenTemplate);
   }
 }
 
 async function init() {
   try {
-    await loadModels();
+    await loadVisualModels();
   } catch (_err) {
-    message("Dio modela nije dostupan, igra radi s fallback prikazom.", 2400);
+    msg("Dio modela nije dostupan. Pokrećem fallback prikaz.", 2500);
   }
 
-  for (let i = 0; i < 12; i += 1) {
-    spawnCitizen();
-  }
-
+  for (let i = 0; i < 14; i += 1) spawnCitizen();
   startGame();
 }
 
 setTimeout(() => {
   if (started) return;
-  message("Modeli kasne. Pokrećem odmah vožnju s fallback prikazom.", 2600);
-  for (let i = citizens.length; i < 10; i += 1) spawnCitizen();
+  msg("Modeli kasne. Start s fallback prikazom.", 2500);
+  if (!citizens.length) for (let i = 0; i < 10; i += 1) spawnCitizen();
   startGame();
 }, 7000);
 
