@@ -1,0 +1,122 @@
+:root {
+  --bg-1: #0c1118;
+  --bg-2: #152536;
+  --accent: #3dd6f5;
+  --accent-2: #ff9f43;
+  --text: #f0f4fb;
+  --danger: #ff4f4f;
+  --ok: #55e091;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Rajdhani", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 700px at 80% -10%, #234f7a88, transparent 60%),
+    radial-gradient(1000px 600px at -10% 110%, #5e2d4a8a, transparent 55%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-2));
+}
+
+.app-shell {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.hud,
+.legend {
+  border: 1px solid #8ba7c838;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: #0d1723cc;
+  backdrop-filter: blur(8px);
+}
+
+.hud h1 {
+  margin: 0;
+  font-family: "Teko", sans-serif;
+  letter-spacing: 0.05em;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
+}
+
+.subtitle {
+  margin: 8px 0 12px;
+  color: #b8d2ef;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stats div {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #112131;
+  border: 1px solid #365a7d;
+}
+
+.stats strong {
+  color: var(--accent);
+}
+
+.game-wrap {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid #8ba7c838;
+  box-shadow: 0 25px 70px #00000066;
+}
+
+#gameCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #121d2a;
+}
+
+.overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #070d14c7;
+  border: 1px solid #4b86b5;
+  font-weight: 700;
+  text-align: center;
+  max-width: calc(100% - 24px);
+}
+
+.legend h2 {
+  margin: 0 0 8px;
+  font-family: "Teko", sans-serif;
+  letter-spacing: 0.05em;
+  font-size: 2rem;
+}
+
+.legend p {
+  margin: 0;
+  color: #ccdef3;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .overlay {
+    font-size: 0.92rem;
+  }
+}

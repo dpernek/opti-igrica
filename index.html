@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JAN: Grad Heroja Autobot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Teko:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hud">
+        <h1>JAN: Čuvar Mega Grada</h1>
+        <p class="subtitle">WASD za kretanje, Shift za sprint, E za pomoć građanima</p>
+        <div class="stats">
+          <div><span>Reputacija:</span> <strong id="repValue">0</strong></div>
+          <div><span>Završene misije:</span> <strong id="missionValue">0</strong></div>
+          <div><span>Aktivni problem:</span> <strong id="activeIssue">Traženje...</strong></div>
+        </div>
+      </section>
+
+      <section class="game-wrap">
+        <canvas id="gameCanvas" width="1280" height="720" aria-label="Igra JAN u gradu"></canvas>
+        <div class="overlay" id="eventOverlay">JAN i Autoboti patroliraju gradom...</div>
+      </section>
+
+      <section class="legend">
+        <h2>Cilj</h2>
+        <p>
+          Pronađi građane koji trebaju pomoć, priđi im i pritisni <strong>E</strong>. Autoboti te prate i drže
+          sigurnost pod kontrolom dok rješavaš gradske izazove.
+        </p>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
