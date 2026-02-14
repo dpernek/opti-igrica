@@ -1,6 +1,9 @@
 import * as THREE from "https://esm.sh/three@0.164.1";
 import { GLTFLoader } from "https://esm.sh/three@0.164.1/examples/jsm/loaders/GLTFLoader";
 import { clone } from "https://esm.sh/three@0.164.1/examples/jsm/utils/SkeletonUtils";
+import { EffectComposer } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/EffectComposer";
+import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/RenderPass";
+import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass";
 
 const repValue = document.getElementById("repValue");
 const missionValue = document.getElementById("missionValue");
@@ -24,6 +27,7 @@ const state = {
   message: "Priprema ultra 3D grada...",
   messageUntil: 0,
   transformMode: "car",
+  districtLevel: 1,
 };
 
 const issues = [
@@ -50,6 +54,13 @@ scene.fog = new THREE.Fog("#9db7d0", 250, 1850);
 
 const camera = new THREE.PerspectiveCamera(64, canvas.clientWidth / canvas.clientHeight, 0.1, 5000);
 camera.position.set(0, 16, -30);
+
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth, canvas.clientHeight), 0.3, 0.6, 0.82);
+composer.addPass(bloomPass);
+composer.setSize(canvas.clientWidth, canvas.clientHeight);
 
 const hemi = new THREE.HemisphereLight("#d8ecff", "#4f667a", 0.75);
 scene.add(hemi);
@@ -101,22 +112,62 @@ function makeSky() {
 
 makeSky();
 
+function makeNoiseTexture(size, baseColor, accentColor, density = 0.12) {
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < size * size * density; i += 1) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const alpha = Math.random() * 0.22;
+    ctx.fillStyle = `${accentColor}${Math.floor(alpha * 255)
+      .toString(16)
+      .padStart(2, "0")}`;
+    ctx.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+const grassTexture = makeNoiseTexture(256, "#829f69", "#4f713f", 0.2);
+grassTexture.repeat.set(40, 40);
+
+const asphaltTexture = makeNoiseTexture(256, "#2a3039", "#49515f", 0.28);
+asphaltTexture.repeat.set(22, 22);
+
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(WORLD, WORLD),
-  new THREE.MeshStandardMaterial({ color: "#7d9966", roughness: 0.96, metalness: 0.01 })
+  new THREE.MeshStandardMaterial({
+    color: "#7d9966",
+    map: grassTexture,
+    roughness: 0.98,
+    metalness: 0.01,
+  })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
 function laneMaterial() {
-  return new THREE.MeshStandardMaterial({ color: "#eadca2", roughness: 0.4, metalness: 0.02 });
+  return new THREE.MeshStandardMaterial({ color: "#eadca2", roughness: 0.3, metalness: 0.03 });
 }
 
 function addRoad(x, z, w, d) {
   const road = new THREE.Mesh(
     new THREE.BoxGeometry(w, 1.2, d),
-    new THREE.MeshStandardMaterial({ color: "#252c34", roughness: 0.88, metalness: 0.05 })
+    new THREE.MeshPhysicalMaterial({
+      color: "#252c34",
+      map: asphaltTexture,
+      roughness: 0.74,
+      metalness: 0.1,
+      clearcoat: 0.42,
+      clearcoatRoughness: 0.6,
+    })
   );
   road.position.set(x, 0.6, z);
   road.receiveShadow = true;
@@ -421,6 +472,13 @@ function makeCitizenFallback() {
 }
 
 const citizens = [];
+const incidents = [];
+
+const incidentDefs = [
+  { kind: "traffic", label: "Raščisti prometni kolaps", reward: 20, needMode: "car", color: "#ffb34d", radius: 16 },
+  { kind: "grid", label: "Stabiliziraj energetsku mrežu", reward: 24, needMode: "robot", color: "#66c7ff", radius: 14 },
+  { kind: "medical", label: "Hitna zona treba koridor", reward: 22, needMode: "any", color: "#ff5f7c", radius: 15 },
+];
 
 function spawnCitizen() {
   const root = citizenTemplate ? clone(citizenTemplate) : makeCitizenFallback();
@@ -442,6 +500,46 @@ function spawnCitizen() {
     root,
     marker,
     issue: issues[Math.floor(Math.random() * issues.length)],
+    solved: false,
+    pulse: Math.random() * Math.PI * 2,
+  });
+}
+
+function spawnIncident() {
+  const def = incidentDefs[Math.floor(Math.random() * incidentDefs.length)];
+  const root = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.9, 2.6, 6, 10),
+    new THREE.MeshStandardMaterial({
+      color: def.color,
+      emissive: def.color,
+      emissiveIntensity: 0.5,
+      roughness: 0.35,
+      metalness: 0.45,
+    })
+  );
+  core.position.y = 3.2;
+  core.castShadow = true;
+  root.add(core);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(def.radius, 0.55, 14, 48),
+    new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.78 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.7;
+  root.add(ring);
+
+  root.position.copy(randomStreetPoint());
+  scene.add(root);
+
+  incidents.push({
+    root,
+    core,
+    ring,
+    issue: def.label,
+    reward: def.reward,
+    needMode: def.needMode,
     solved: false,
     pulse: Math.random() * Math.PI * 2,
   });
@@ -484,24 +582,79 @@ function nearestCitizen() {
   return { nearest, dist };
 }
 
+function nearestIncident() {
+  let nearest = null;
+  let dist = Infinity;
+  for (const inc of incidents) {
+    if (inc.solved) continue;
+    const d = inc.root.position.distanceTo(player.root.position);
+    if (d < dist) {
+      dist = d;
+      nearest = inc;
+    }
+  }
+  return { nearest, dist };
+}
+
+function nearestObjective() {
+  const c = nearestCitizen();
+  const i = nearestIncident();
+  if (i.nearest && (!c.nearest || i.dist < c.dist)) {
+    return { type: "incident", item: i.nearest, dist: i.dist };
+  }
+  if (c.nearest) return { type: "citizen", item: c.nearest, dist: c.dist };
+  return { type: "none", item: null, dist: Infinity };
+}
+
 function solveIssue() {
-  const { nearest, dist } = nearestCitizen();
-  if (!nearest || dist > (player.mode === "car" ? 13 : 9)) {
+  const target = nearestObjective();
+  if (!target.item) {
+    msg("Nema aktivnih ciljeva u blizini.", 1600);
+    return;
+  }
+
+  if (target.type === "incident") {
+    const inc = target.item;
+    if (target.dist > inc.ring.geometry.parameters.radius + 2) {
+      msg("Priđi incident zoni i pritisni E.", 1700);
+      return;
+    }
+    if (inc.needMode !== "any" && player.mode !== inc.needMode) {
+      msg(`Za ovu misiju prebaci u ${inc.needMode === "car" ? "AUTO" : "ROBOT"} mod (Space).`, 2100);
+      return;
+    }
+
+    inc.solved = true;
+    inc.root.visible = false;
+    state.reputation += inc.reward;
+    state.missions += 1;
+    msg(`Misija riješena: ${inc.issue}`, 2300);
+    setTimeout(() => {
+      inc.root.position.copy(randomStreetPoint());
+      inc.solved = false;
+      inc.root.visible = true;
+      inc.issue = incidentDefs[Math.floor(Math.random() * incidentDefs.length)].label;
+    }, 2800);
+    return;
+  }
+
+  const citizen = target.item;
+  if (target.dist > (player.mode === "car" ? 13 : 9)) {
     msg("Priđi bliže građaninu pa pritisni E.", 1700);
     return;
   }
 
-  nearest.solved = true;
-  nearest.root.visible = false;
+  citizen.solved = true;
+  citizen.root.visible = false;
   state.reputation += 12;
   state.missions += 1;
-  msg(`Riješeno: ${nearest.issue}`, 2400);
+  msg(`Riješeno: ${citizen.issue}`, 2400);
 
   setTimeout(() => {
-    nearest.root.position.copy(randomStreetPoint());
-    nearest.issue = issues[Math.floor(Math.random() * issues.length)];
-    nearest.solved = false;
-    nearest.root.visible = true;
+    citizen.root.position.copy(randomStreetPoint());
+    citizen.issue = issues[Math.floor(Math.random() * issues.length)];
+    citizen.solved = false;
+    citizen.root.visible = true;
   }, 2200);
 }
 
@@ -659,10 +812,21 @@ function updateCitizens(time) {
     c.marker.scale.setScalar(0.92 + pulse * 0.55);
     c.marker.material.opacity = 0.45 + pulse * 0.5;
   });
+
+  incidents.forEach((inc) => {
+    if (inc.solved) return;
+    const pulse = (Math.sin(time * 0.004 + inc.pulse) + 1) * 0.5;
+    inc.ring.scale.setScalar(0.96 + pulse * 0.22);
+    inc.ring.material.opacity = 0.4 + pulse * 0.45;
+    inc.core.material.emissiveIntensity = 0.4 + pulse * 0.9;
+    inc.core.rotation.y += 0.015;
+  });
 }
 
 const camPos = new THREE.Vector3();
 const camLook = new THREE.Vector3();
+const tmpColorA = new THREE.Color();
+const tmpColorB = new THREE.Color();
 function updateCamera() {
   const dir = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading));
   const side = new THREE.Vector3(Math.cos(player.heading), 0, -Math.sin(player.heading));
@@ -679,19 +843,35 @@ function updateCamera() {
   camera.lookAt(camLook);
 }
 
+function updateEnvironment(time) {
+  const phase = (Math.sin(time * 0.00004) + 1) * 0.5;
+  const warm = 0.6 + phase * 0.55;
+  sun.intensity = 0.88 + phase * 0.8;
+  sun.position.set(-180 + phase * 110, 170 + phase * 95, 70 + phase * 55);
+  bounce.intensity = 0.36 + phase * 0.3;
+
+  tmpColorA.setHSL(0.57 + phase * 0.06, 0.45, 0.66 + phase * 0.12);
+  tmpColorB.setHSL(0.58 + phase * 0.03, 0.22, 0.42 + phase * 0.16);
+  scene.fog.color.copy(tmpColorB);
+  renderer.setClearColor(tmpColorA, 1);
+
+  bloomPass.strength = 0.22 + phase * 0.28 * warm;
+}
+
 function updateUI(time) {
   repValue.textContent = String(state.reputation);
   missionValue.textContent = String(state.missions);
+  state.districtLevel = Math.max(1, Math.floor(state.missions / 6) + 1);
 
-  const { nearest } = nearestCitizen();
-  activeIssue.textContent = nearest ? nearest.issue : "Nema aktivnih problema";
+  const target = nearestObjective();
+  activeIssue.textContent = target.item ? target.item.issue : "Nema aktivnih problema";
 
   if (time > state.messageUntil) {
-    state.message = nearest ? `Cilj: ${nearest.issue}` : "Grad je stabilan, nastavi patrolu.";
+    state.message = target.item ? `Cilj: ${target.item.issue}` : "Grad je stabilan, nastavi patrolu.";
   }
 
   const speed = Math.max(0, Math.round(Math.abs(player.speed)));
-  eventOverlay.textContent = `${state.message} | MODE: ${state.transformMode.toUpperCase()} | ${speed} km/h`;
+  eventOverlay.textContent = `${state.message} | Zona Lv.${state.districtLevel} | MODE: ${state.transformMode.toUpperCase()} | ${speed} km/h`;
 }
 
 window.addEventListener("keydown", (e) => {
@@ -707,6 +887,8 @@ window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 
 window.addEventListener("resize", () => {
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+  composer.setSize(canvas.clientWidth, canvas.clientHeight);
+  bloomPass.setSize(canvas.clientWidth, canvas.clientHeight);
   camera.aspect = canvas.clientWidth / canvas.clientHeight;
   camera.updateProjectionMatrix();
 });
@@ -728,10 +910,11 @@ function loop() {
   updateBots(dt, time);
   updateTraffic(dt);
   updateCitizens(time);
+  updateEnvironment(time);
   updateCamera();
   updateUI(time);
 
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(loop);
 }
 
@@ -814,6 +997,7 @@ async function init() {
   }
 
   for (let i = 0; i < 14; i += 1) spawnCitizen();
+  for (let i = 0; i < 8; i += 1) spawnIncident();
   startGame();
 }
 
@@ -821,6 +1005,7 @@ setTimeout(() => {
   if (started) return;
   msg("Modeli kasne. Start s fallback prikazom.", 2500);
   if (!citizens.length) for (let i = 0; i < 10; i += 1) spawnCitizen();
+  if (!incidents.length) for (let i = 0; i < 5; i += 1) spawnIncident();
   startGame();
 }, 7000);
 

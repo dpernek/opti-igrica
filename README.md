@@ -8,6 +8,8 @@ Web 3D igra na hrvatskom: JAN vozi kroz veliki grad s Autobotima i rješava prob
 - GLTF modeli (online)
 - Mission gameplay u 3D prostoru
 - Third-person vožnja autom kroz grad
+- Više tipova misija (građani + incident zone)
+- Transformacija svih likova (JAN + 2 Autobota)
 
 ## Kontrole
 
