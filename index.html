@@ -6,37 +6,38 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JAN: Grad Heroja Autobot</title>
+    <title>JAN: 3D Mega Grad Autobot</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Teko:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260214-1" />
+    <link rel="stylesheet" href="styles.css?v=20260214-3d-1" />
   </head>
   <body>
     <main class="app-shell">
       <section class="hud">
-        <h1>JAN: Čuvar Mega Grada</h1>
-        <p class="subtitle">WASD za kretanje, Shift za sprint, E za pomoć građanima</p>
+        <h1>JAN: 3D Čuvar Mega Grada</h1>
+        <p class="subtitle">WASD kretanje, Shift sprint, E pomoć građanima, miš za kameru</p>
         <div class="stats">
           <div><span>Reputacija:</span> <strong id="repValue">0</strong></div>
           <div><span>Završene misije:</span> <strong id="missionValue">0</strong></div>
-          <div><span>Aktivni problem:</span> <strong id="activeIssue">Traženje...</strong></div>
+          <div><span>Aktivni problem:</span> <strong id="activeIssue">Učitavanje grada...</strong></div>
         </div>
       </section>
 
       <section class="game-wrap">
-        <canvas id="gameCanvas" width="1280" height="720" aria-label="Igra JAN u gradu"></canvas>
-        <div class="overlay" id="eventOverlay">JAN i Autoboti patroliraju gradom...</div>
+        <canvas id="gameCanvas" aria-label="JAN 3D igra"></canvas>
+        <div class="overlay" id="eventOverlay">Učitavanje 3D svijeta...</div>
+        <div class="loader" id="loader">Učitavanje modela i grada...</div>
       </section>
 
       <section class="legend">
         <h2>Cilj</h2>
         <p>
-          Pronađi građane koji trebaju pomoć, priđi im i pritisni <strong>E</strong>. Autoboti te prate i drže
-          sigurnost pod kontrolom dok rješavaš gradske izazove.
+          JAN i Autoboti patroliraju gradom. Pronađi građane označene signalnim krugom, priđi im i pritisni
+          <strong>E</strong> kako bi riješio problem.
         </p>
       </section>
     </main>
@@ -48,6 +49,6 @@
         });
       }
     </script>
-    <script src="game.js?v=20260214-1"></script>
+    <script type="module" src="game.js?v=20260214-3d-1"></script>
   </body>
 </html>

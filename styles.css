@@ -1,11 +1,10 @@
 :root {
-  --bg-1: #0c1118;
-  --bg-2: #152536;
-  --accent: #3dd6f5;
-  --accent-2: #ff9f43;
-  --text: #f0f4fb;
-  --danger: #ff4f4f;
-  --ok: #55e091;
+  --bg-1: #090f16;
+  --bg-2: #111f30;
+  --panel: #0c1622da;
+  --line: #74a3cf52;
+  --accent: #29d2ff;
+  --text: #ecf4ff;
 }
 
 * {
@@ -15,55 +14,64 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Rajdhani", sans-serif;
   color: var(--text);
+  font-family: "Rajdhani", sans-serif;
   background:
-    radial-gradient(1200px 700px at 80% -10%, #234f7a88, transparent 60%),
-    radial-gradient(1000px 600px at -10% 110%, #5e2d4a8a, transparent 55%),
-    linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    radial-gradient(1200px 700px at 90% -10%, #164a727a, transparent 55%),
+    radial-gradient(1000px 600px at -10% 110%, #50284378, transparent 60%),
+    linear-gradient(155deg, var(--bg-1), var(--bg-2));
 }
 
 .app-shell {
-  max-width: 1360px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .hud,
 .legend {
-  border: 1px solid #8ba7c838;
-  border-radius: 14px;
-  padding: 14px 16px;
-  background: #0d1723cc;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
   backdrop-filter: blur(8px);
 }
 
-.hud h1 {
+.hud h1,
+.legend h2 {
   margin: 0;
   font-family: "Teko", sans-serif;
-  letter-spacing: 0.05em;
-  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: 0.04em;
   line-height: 1;
 }
 
+.hud h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
+.legend h2 {
+  font-size: clamp(1.7rem, 3.6vw, 2.5rem);
+  margin-bottom: 6px;
+}
+
 .subtitle {
-  margin: 8px 0 12px;
-  color: #b8d2ef;
+  margin: 6px 0 10px;
+  color: #bad7f4;
 }
 
 .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .stats div {
-  padding: 8px 12px;
+  border: 1px solid #396483;
   border-radius: 10px;
-  background: #112131;
-  border: 1px solid #365a7d;
+  padding: 8px 12px;
+  background: #0f2234;
 }
 
 .stats strong {
@@ -72,17 +80,18 @@ body {
 
 .game-wrap {
   position: relative;
-  border-radius: 18px;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid #8ba7c838;
-  box-shadow: 0 25px 70px #00000066;
+  border: 1px solid var(--line);
+  min-height: min(74vh, 820px);
+  box-shadow: 0 30px 80px #00000075;
 }
 
 #gameCanvas {
-  width: 100%;
-  height: auto;
   display: block;
-  background: #121d2a;
+  width: 100%;
+  height: min(74vh, 820px);
+  background: #02070d;
 }
 
 .overlay {
@@ -90,33 +99,44 @@ body {
   left: 50%;
   bottom: 14px;
   transform: translateX(-50%);
-  padding: 8px 16px;
+  max-width: calc(100% - 24px);
+  border: 1px solid #4a81ab;
   border-radius: 999px;
-  background: #070d14c7;
-  border: 1px solid #4b86b5;
+  background: #08111bcf;
+  padding: 8px 16px;
   font-weight: 700;
   text-align: center;
-  max-width: calc(100% - 24px);
 }
 
-.legend h2 {
-  margin: 0 0 8px;
-  font-family: "Teko", sans-serif;
-  letter-spacing: 0.05em;
-  font-size: 2rem;
+.loader {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  background:
+    radial-gradient(circle at 50% 25%, #1f3f5f77, #05080ecf 50%),
+    linear-gradient(180deg, #050910, #081320);
+  color: #e6f3ff;
+  z-index: 4;
+}
+
+.loader.hidden {
+  display: none;
 }
 
 .legend p {
   margin: 0;
-  color: #ccdef3;
+  color: #d0e4f7;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .app-shell {
-    padding: 12px;
+    padding: 10px;
   }
 
-  .overlay {
-    font-size: 0.92rem;
+  #gameCanvas {
+    height: min(64vh, 640px);
   }
 }

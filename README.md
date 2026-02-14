@@ -1,36 +1,33 @@
-# JAN: Čuvar Mega Grada
+# JAN: 3D Čuvar Mega Grada
 
-Web igra na hrvatskom u kojoj JAN s Transformerima i Autobotima patrolira gradom i pomaže građanima.
+Web 3D igra na hrvatskom: JAN patrolira velikim gradom s Autobotima i rješava probleme građana.
 
-## Lokalno pokretanje
+## Tehnologija
 
-1. Otvori `index.html` u pregledniku.
-2. Kontrole:
-   - `W A S D` ili strelice: kretanje
-   - `Shift`: sprint
-   - `E`: rješavanje problema građana
+- Three.js (`WebGL`)
+- GLTF modeli (online)
+- Mission gameplay u 3D prostoru
 
-## Objavi na GitHub Pages
+## Kontrole
 
-1. Kreiraj novi repo na GitHubu (npr. `jan-transformers-game`).
-2. U terminalu u ovoj mapi pokreni:
+- `W A S D` ili strelice: kretanje
+- `Shift`: sprint
+- `E`: rješavanje problema građana
+- miš: rotacija kamere
 
-```bash
-git init
-git add .
-git commit -m "Inicijalna verzija igre JAN"
-git branch -M main
-git remote add origin https://github.com/TVOJ_USERNAME/jan-transformers-game.git
-git push -u origin main
-```
+## Modeli (free)
 
-3. Na GitHubu otvori `Settings > Pages`.
-4. Pod `Build and deployment` odaberi:
-   - `Source`: `Deploy from a branch`
-   - `Branch`: `main` i `/ (root)`
-5. Spremi i pričekaj 1-2 minute.
+Igra koristi javno dostupne free GLTF modele iz Three.js primjera:
 
-Link igre će biti:
+- Soldier (JAN): `https://threejs.org/examples/models/gltf/Soldier.glb`
+- RobotExpressive (Autoboti): `https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb`
 
-`https://TVOJ_USERNAME.github.io/jan-transformers-game/`
+Ako model ne može biti učitan (mreža/CDN), igra automatski prebacuje na lokalne fallback 3D modele i nastavlja bez blokiranja.
 
+## GitHub Pages
+
+Nakon pusha na `main`, stranica je dostupna na:
+
+`https://dpernek.github.io/opti-igrica/`
+
+Ako se stara verzija cacheira, napravi hard refresh (`Cmd+Shift+R`).
